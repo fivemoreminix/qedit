@@ -21,7 +21,10 @@ Go to the [Releases](https://github.com/codemessiah/diesel/releases) page to dow
 The package manager is fundamental to the design of Diesel -- it provides opt-in features, to save yourself from the everyday strike of bloatware that has infected the software industry since its inception. (See Wirth's Law) Diesel is optimized for size and stability. It offers a base set of shared features which extensions freely rely upon. It is up to extensions to implement the features users want to see. And every extension is unique -- each its own build system; each its own ideal optimization: of speed, size, or safety; each its own codebase. But all extensions are compiled right on your machine, in the Gentooman-style, to take advantage of all your CPU's glorious features. Diesel will be the fastest text editor you use!
 
 ## Making and Publishing Extensions
-Diesel is just as much your editor as it is mine. If you know some Zig, C, or C++ programming you can get started making extensions for Diesel right away! Although making extensions with other languages, like Python, Lua, Go, or C# is trickier, it is NOT impossible! With a little C FFI magic, any language can be used to make extensions with diesel.
+Diesel is just as much your editor as it is mine. If you know some Zig, C, or C++ programming you can get started making extensions for Diesel right away!
 
-See the Developing Extensions page on the Wiki for more informatioN!
- 
+See the [Developing Extensions](https://github.com/codemessiah/diesel/wiki/Developing-Extensions) page on the Wiki for more information!
+
+Getting your extensions published to the listing is free and rather easy. The only requirement is that you have set up a build.zig in the root of your extension folder.
+
+See [Publishing Extensions](https://github.com/codemessiah/diesel/wiki/Publishing-Extensions) for more information.
