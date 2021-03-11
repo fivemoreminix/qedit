@@ -18,9 +18,9 @@ type InputField struct {
 
 func NewInputField(screen *tcell.Screen, placeholder string, theme *Theme) *InputField {
 	return &InputField{
-		Text:  placeholder,
+		Text:   placeholder,
 		screen: screen,
-		Theme: theme,
+		Theme:  theme,
 	}
 }
 
@@ -40,7 +40,7 @@ func (f *InputField) SetCursorPos(offset int) {
 
 	// Scrolling
 	if offset >= f.scrollPos+f.width-2 { // If cursor position is out of view to the right...
-		f.scrollPos = offset - f.width+2 // Scroll just enough to view that column
+		f.scrollPos = offset - f.width + 2 // Scroll just enough to view that column
 	} else if offset < f.scrollPos { // If cursor position is out of view to the left...
 		f.scrollPos = offset
 	}
@@ -53,7 +53,7 @@ func (f *InputField) SetCursorPos(offset int) {
 
 func (f *InputField) Delete(forward bool) {
 	if forward {
-		//if f.cursorPos 
+		//if f.cursorPos
 	} else {
 
 	}

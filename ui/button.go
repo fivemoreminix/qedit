@@ -7,21 +7,21 @@ import (
 )
 
 type Button struct {
-	Text string
+	Text     string
 	Callback func()
 
-	x, y int
+	x, y          int
 	width, height int
-	focused bool
+	focused       bool
 
 	Theme *Theme
 }
 
 func NewButton(text string, theme *Theme, callback func()) *Button {
 	return &Button{
-		Text: text,
+		Text:     text,
 		Callback: callback,
-		Theme: theme,
+		Theme:    theme,
 	}
 }
 

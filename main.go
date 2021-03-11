@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
-	"io/fs"
 
 	"github.com/fivemoreminix/diesel/ui"
 	"github.com/gdamore/tcell/v2"
@@ -46,6 +46,25 @@ func main() {
 	tabContainer := ui.NewTabContainer(&theme)
 	tabContainer.SetPos(0, 1)
 	tabContainer.SetSize(sizex, sizey-1)
+
+	// Load files from command-line arguments
+	if len(os.Args) > 1 {
+		for _, path := range os.Args[1:] {
+			file, err := os.Open(path)
+			if err != nil {
+				panic("File could not be opened at path " + path)
+			}
+			defer file.Close()
+
+			bytes, err := ioutil.ReadAll(file)
+			if err != nil {
+				panic("Could not read all of " + path)
+			}
+
+			textEdit := ui.NewTextEdit(&s, path, string(bytes), &theme)
+			tabContainer.AddTab(path, textEdit)
+		}
+	}
 
 	var fileSelector *ui.FileSelectorDialog // if nil, we don't draw it
 

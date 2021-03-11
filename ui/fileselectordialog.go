@@ -11,15 +11,15 @@ import (
 type FileSelectorDialog struct {
 	MustExist           bool           // Whether the dialog should have a user select an existing file.
 	FilesChosenCallback func([]string) // Returns slice of filenames selected. nil if user canceled.
-	CancelCallback      func() // Called when the dialog has been canceled by the user
+	CancelCallback      func()         // Called when the dialog has been canceled by the user
 
 	container     *WindowContainer
 	x, y          int
 	width, height int
 	focused       bool
 
-	tabOrder         []Component
-	tabOrderIdx      int
+	tabOrder    []Component
+	tabOrderIdx int
 
 	inputField    *InputField
 	confirmButton *Button
@@ -87,7 +87,7 @@ func (d *FileSelectorDialog) GetPos() (int, int) {
 func (d *FileSelectorDialog) SetPos(x, y int) {
 	d.x, d.y = x, y
 	d.container.SetPos(x, y)
-	d.inputField.SetPos(d.x+1, d.y+2) // Center input field
+	d.inputField.SetPos(d.x+1, d.y+2)   // Center input field
 	d.cancelButton.SetPos(d.x+1, d.y+4) // Place "Cancel" button on left, bottom
 }
 

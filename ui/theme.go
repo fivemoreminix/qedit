@@ -19,7 +19,7 @@ func (theme *Theme) GetOrDefault(key string) tcell.Style {
 			return val
 		}
 	}
-	
+
 	if val, ok := DefaultTheme[key]; ok {
 		return val
 	} else {

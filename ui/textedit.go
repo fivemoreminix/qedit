@@ -13,11 +13,11 @@ import (
 // tools, is autocomplete ready, and contains the various information about
 // content being edited.
 type TextEdit struct {
-	LineNumbers bool // Whether to render line numbers (and therefore the column)
-	Dirty       bool // Whether the buffer has been edited
-	UseHardTabs bool // When true, tabs are '\t'
-	TabSize     int  // How many spaces to indent by
-	IsCRLF      bool // Whether the file's line endings are CRLF (\r\n) or LF (\n)
+	LineNumbers bool   // Whether to render line numbers (and therefore the column)
+	Dirty       bool   // Whether the buffer has been edited
+	UseHardTabs bool   // When true, tabs are '\t'
+	TabSize     int    // How many spaces to indent by
+	IsCRLF      bool   // Whether the file's line endings are CRLF (\r\n) or LF (\n)
 	FilePath    string // Will be empty if the file has not been saved yet
 
 	buffer           []string      // TODO: replace line-based buffer with gap buffer

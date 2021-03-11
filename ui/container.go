@@ -160,7 +160,7 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 	for _, tab := range c.children {
 		combinedTabLength += len(tab.Name) + 2 // 2 for padding
 	}
-	combinedTabLength += len(c.children)-1 // add for spacing between tabs
+	combinedTabLength += len(c.children) - 1 // add for spacing between tabs
 
 	// Draw tabs
 	col := c.x + c.width/2 - combinedTabLength/2 // Starting column
@@ -239,10 +239,10 @@ func (c *TabContainer) HandleEvent(event tcell.Event) bool {
 				if c.Selected >= len(c.children) {
 					c.Selected = 0
 				}
-			} else if ev.Modifiers() == tcell.ModCtrl & tcell.ModShift { // Ctrl + Shift + Tab was pressed
+			} else if ev.Modifiers() == tcell.ModCtrl&tcell.ModShift { // Ctrl + Shift + Tab was pressed
 				c.Selected--
 				if c.Selected < 0 {
-					c.Selected = len(c.children)-1
+					c.Selected = len(c.children) - 1
 				}
 			}
 		}
@@ -281,7 +281,7 @@ func (w *WindowContainer) Draw(s tcell.Screen) {
 	headerStyle := w.Theme.GetOrDefault("WindowHeader")
 
 	DrawRect(s, w.x, w.y, w.width, 1, ' ', headerStyle)                               // Draw header
-	DrawStr(s, w.x+w.width/2 - len(w.Title)/2, w.y, w.Title, headerStyle)                 // Draw title
+	DrawStr(s, w.x+w.width/2-len(w.Title)/2, w.y, w.Title, headerStyle)               // Draw title
 	DrawRect(s, w.x, w.y+1, w.width, w.height-1, ' ', w.Theme.GetOrDefault("Window")) // Draw body background
 
 	if w.Child != nil {

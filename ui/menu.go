@@ -178,8 +178,8 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 
 // A Menu contains one or more ItemEntry or ItemMenus.
 type Menu struct {
-	Name          string
-	Items         []Item
+	Name  string
+	Items []Item
 
 	x, y          int
 	width, height int // Size may not be settable
@@ -205,7 +205,7 @@ func NewMenu(name string, theme *Theme, items []Item) Menu {
 func (m *Menu) Draw(s tcell.Screen) {
 	defaultStyle := m.Theme.GetOrDefault("Menu")
 
-	m.GetSize()                                                     // Call this to update internal width and height
+	m.GetSize()                                                          // Call this to update internal width and height
 	DrawRect(s, m.x, m.y, m.width, m.height, ' ', defaultStyle)          // Fill background
 	DrawRectOutlineDefault(s, m.x, m.y, m.width, m.height, defaultStyle) // Draw outline
 
