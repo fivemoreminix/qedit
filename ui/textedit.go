@@ -334,7 +334,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 func (t *TextEdit) SetFocused(v bool) {
 	t.focused = v
 	if v {
-		t.SetLineCol(t.curx, t.cury)
+		t.SetLineCol(t.cury, t.curx)
 	} else {
 		(*t.screen).HideCursor()
 	}
@@ -387,6 +387,10 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 			t.SetLineCol(t.cury, 0)
 		case tcell.KeyEnd:
 			t.SetLineCol(t.cury, len(t.buffer[t.cury]))
+		case tcell.KeyPgUp:
+			t.SetLineCol(t.scrolly - t.height, t.curx) // Go a page up
+		case tcell.KeyPgDn:
+			t.SetLineCol(t.scrolly + t.height*2 - 1, t.curx) // Go a page down
 
 		// Deleting
 		case tcell.KeyBackspace:

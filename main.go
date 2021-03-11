@@ -68,12 +68,12 @@ func main() {
 
 	var fileSelector *ui.FileSelectorDialog // if nil, we don't draw it
 
-	bar := ui.NewMenuBar(nil, &theme)
+	bar := ui.NewMenuBar(&theme)
 
 	barFocused := false
 
 	// TODO: load menus in another function
-	bar.Menus = append(bar.Menus, ui.NewMenu("File", &theme, []ui.Item{&ui.ItemEntry{Name: "New File", Callback: func() {
+	bar.AddMenu(ui.NewMenu("File", &theme, []ui.Item{&ui.ItemEntry{Name: "New File", Callback: func() {
 		textEdit := ui.NewTextEdit(&s, "", "", &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
 	}}, &ui.ItemEntry{Name: "Open...", Callback: func() {
@@ -112,7 +112,7 @@ func main() {
 		changeFocus(fileSelector)
 	}}, &ui.ItemEntry{Name: "Save", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
-			tab := tabContainer.GetTab(tabContainer.Selected)
+			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
 			if len(te.FilePath) > 0 {
 				contents := te.String()
@@ -148,11 +148,11 @@ func main() {
 		os.Exit(0)
 	}}}))
 
-	bar.Menus = append(bar.Menus, ui.NewMenu("Edit", &theme, []ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
+	bar.AddMenu(ui.NewMenu("Edit", &theme, []ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
 		s.Beep()
 	}}}))
 
-	bar.Menus = append(bar.Menus, ui.NewMenu("Search", &theme, []ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
+	bar.AddMenu(ui.NewMenu("Search", &theme, []ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
 		s.Beep()
 	}}}))
 

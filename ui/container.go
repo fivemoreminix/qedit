@@ -107,12 +107,11 @@ type Tab struct {
 
 // A TabContainer organizes children by showing only one of them at a time.
 type TabContainer struct {
-	Selected int
-
 	children      []Tab
 	x, y          int
 	width, height int
 	focused       bool
+	selected      int
 
 	Theme *Theme
 }
@@ -143,6 +142,28 @@ func (c *TabContainer) RemoveTab(idx int) bool {
 	return false
 }
 
+// FocusTab sets the visible tab to the one at `idx`. FocusTab clamps `idx`
+// between 0 and tab_count - 1. If no tabs are present, the function does nothing.
+func (c *TabContainer) FocusTab(idx int) {
+	if len(c.children) < 1 {
+		return
+	}
+
+	if idx < 0 {
+		idx = 0
+	} else if idx >= len(c.children) {
+		idx = len(c.children)-1
+	}
+
+	c.children[c.selected].Child.SetFocused(false) // Unfocus old tab
+	c.children[idx].Child.SetFocused(true) // Focus new tab
+	c.selected = idx
+}
+
+func (c *TabContainer) GetSelectedTabIdx() int {
+	return c.selected
+}
+
 func (c *TabContainer) GetTabCount() int {
 	return len(c.children)
 }
@@ -166,7 +187,7 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 	col := c.x + c.width/2 - combinedTabLength/2 // Starting column
 	for i, tab := range c.children {
 		var sty tcell.Style
-		if c.Selected == i {
+		if c.selected == i {
 			sty = c.Theme.GetOrDefault("TabSelected")
 		} else {
 			sty = c.Theme.GetOrDefault("Tab")
@@ -178,16 +199,16 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 	}
 
 	// Draw selected child in center
-	if c.Selected < len(c.children) {
-		c.children[c.Selected].Child.Draw(s)
+	if c.selected < len(c.children) {
+		c.children[c.selected].Child.Draw(s)
 	}
 }
 
 // SetFocused calls SetFocused on the visible child Component.
 func (c *TabContainer) SetFocused(v bool) {
 	c.focused = v
-	if c.Selected < len(c.children) {
-		c.children[c.Selected].Child.SetFocused(v)
+	if c.selected < len(c.children) {
+		c.children[c.selected].Child.SetFocused(v)
 	}
 }
 
@@ -211,8 +232,8 @@ func (c *TabContainer) GetPos() (int, int) {
 // SetPos sets the position of the container and updates the child Component.
 func (c *TabContainer) SetPos(x, y int) {
 	c.x, c.y = x, y
-	if c.Selected < len(c.children) {
-		c.children[c.Selected].Child.SetPos(x+1, y+1)
+	if c.selected < len(c.children) {
+		c.children[c.selected].Child.SetPos(x+1, y+1)
 	}
 }
 
@@ -224,8 +245,8 @@ func (c *TabContainer) GetSize() (int, int) {
 // SetSize sets the size of the container and updates the size of the child Component.
 func (c *TabContainer) SetSize(width, height int) {
 	c.width, c.height = width, height
-	if c.Selected < len(c.children) {
-		c.children[c.Selected].Child.SetSize(width-2, height-2)
+	if c.selected < len(c.children) {
+		c.children[c.selected].Child.SetSize(width-2, height-2)
 	}
 }
 
@@ -233,24 +254,27 @@ func (c *TabContainer) SetSize(width, height int) {
 func (c *TabContainer) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
-		if ev.Key() == tcell.KeyTab { // Ctrl + Tab was pressed
-			if ev.Modifiers() == tcell.ModCtrl {
-				c.Selected++
-				if c.Selected >= len(c.children) {
-					c.Selected = 0
-				}
-			} else if ev.Modifiers() == tcell.ModCtrl&tcell.ModShift { // Ctrl + Shift + Tab was pressed
-				c.Selected--
-				if c.Selected < 0 {
-					c.Selected = len(c.children) - 1
-				}
+		if ev.Key() == tcell.KeyCtrlE {
+			newIdx := c.selected + 1
+			if newIdx >= len(c.children) {
+				newIdx = 0
 			}
+			c.FocusTab(newIdx)
+			return true
+		} else if ev.Key() == tcell.KeyCtrlW {
+			newIdx := c.selected - 1
+			if newIdx < 0 {
+				newIdx = len(c.children) - 1
+			}
+			c.FocusTab(newIdx)
+			return true
 		}
 	}
 
-	if c.Selected < len(c.children) {
-		return c.children[c.Selected].Child.HandleEvent(event)
+	if c.selected < len(c.children) {
+		return c.children[c.selected].Child.HandleEvent(event)
 	}
+
 	return false
 }
 

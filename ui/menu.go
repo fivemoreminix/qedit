@@ -45,7 +45,7 @@ func (m *Menu) GetName() string {
 
 // A MenuBar is a horizontal list of menus.
 type MenuBar struct {
-	Menus []Menu
+	Menus []*Menu
 
 	x, y          int
 	width, height int
@@ -55,15 +55,18 @@ type MenuBar struct {
 	Theme *Theme
 }
 
-func NewMenuBar(menus []Menu, theme *Theme) *MenuBar {
-	if menus == nil {
-		menus = make([]Menu, 0, 6)
-	}
-
+func NewMenuBar(theme *Theme) *MenuBar {
 	return &MenuBar{
-		Menus: menus,
+		Menus: make([]*Menu, 0, 6),
 		Theme: theme,
 	}
+}
+
+func (b *MenuBar) AddMenu(menu *Menu) {
+	menu.itemSelectedCallback = func() {
+
+	}
+	b.Menus = append(b.Menus, menu)
 }
 
 // GetMenuXPos returns the X position of the name of Menu at `idx` visually.
@@ -143,8 +146,8 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 	case *tcell.EventKey:
 		if ev.Key() == tcell.KeyEnter && !b.Menus[b.selected].Visible {
 			menu := &b.Menus[b.selected]
-			menu.SetPos(b.GetMenuXPos(b.selected), b.y+1)
-			menu.SetFocused(true) // Makes .Visible true for the Menu
+			(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
+			(*menu).SetFocused(true) // Makes .Visible true for the Menu
 		} else if ev.Key() == tcell.KeyLeft {
 			if b.selected <= 0 {
 				b.selected = len(b.Menus) - 1 // Wrap to end
@@ -179,20 +182,21 @@ type Menu struct {
 	Items   []Item
 	Visible bool // True when focused
 
-	x, y          int
-	width, height int // Size may not be settable
-	selected      int // Index of selected Item
+	x, y                 int
+	width, height        int // Size may not be settable
+	selected             int // Index of selected Item
+	itemSelectedCallback func() // Used internally to hide menus on selection
 
 	Theme *Theme
 }
 
 // New creates a new Menu. `items` can be `nil`.
-func NewMenu(name string, theme *Theme, items []Item) Menu {
+func NewMenu(name string, theme *Theme, items []Item) *Menu {
 	if items == nil {
 		items = make([]Item, 0, 6)
 	}
 
-	return Menu{
+	return &Menu{
 		Name:  name,
 		Items: items,
 		Theme: theme,
