@@ -49,7 +49,6 @@ type MenuBar struct {
 
 	x, y          int
 	width, height int
-	menuExpanded  bool
 	focused       bool
 	selected      int // Index of selection in MenuBar
 
@@ -95,7 +94,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 		col += len(str)
 	}
 
-	if b.menuExpanded {
+	if b.Menus[b.selected].Visible {
 		menu := b.Menus[b.selected]
 		menu.Draw(s) // Draw menu when it is expanded / visible
 	}
@@ -105,7 +104,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 func (b *MenuBar) SetFocused(v bool) {
 	b.focused = v
 	if !v {
-		b.menuExpanded = false
+		b.Menus[b.selected].SetFocused(false)
 	}
 }
 
@@ -142,12 +141,10 @@ func (b *MenuBar) SetSize(width, height int) {
 func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
-		if ev.Key() == tcell.KeyEnter && !b.menuExpanded {
+		if ev.Key() == tcell.KeyEnter && !b.Menus[b.selected].Visible {
 			menu := &b.Menus[b.selected]
 			menu.SetPos(b.GetMenuXPos(b.selected), b.y+1)
-			menu.SetFocused(true)
-
-			b.menuExpanded = true // Tells Draw() to render the menu
+			menu.SetFocused(true) // Makes .Visible true for the Menu
 		} else if ev.Key() == tcell.KeyLeft {
 			if b.selected <= 0 {
 				b.selected = len(b.Menus) - 1 // Wrap to end
@@ -165,7 +162,7 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 			// Update position of new menu after changing menu selection
 			b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
 		} else {
-			if b.menuExpanded {
+			if b.Menus[b.selected].Visible {
 				return b.Menus[b.selected].HandleEvent(event)
 			} else {
 				return false // Nobody to propogate our event to
@@ -178,8 +175,9 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 
 // A Menu contains one or more ItemEntry or ItemMenus.
 type Menu struct {
-	Name  string
-	Items []Item
+	Name    string
+	Items   []Item
+	Visible bool // True when focused
 
 	x, y          int
 	width, height int // Size may not be settable
@@ -223,7 +221,7 @@ func (m *Menu) Draw(s tcell.Screen) {
 
 // SetFocused does not do anything for a Menu.
 func (m *Menu) SetFocused(v bool) {
-	// TODO: wat do
+	m.Visible = v
 }
 
 // GetPos returns the position of the Menu.
@@ -263,6 +261,7 @@ func (m *Menu) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
 		if ev.Key() == tcell.KeyEnter {
+			m.SetFocused(false) // Hides the menu
 			switch item := m.Items[m.selected].(type) {
 			case *ItemEntry:
 				item.Callback()

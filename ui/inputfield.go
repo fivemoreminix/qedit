@@ -53,9 +53,21 @@ func (f *InputField) SetCursorPos(offset int) {
 
 func (f *InputField) Delete(forward bool) {
 	if forward {
-		//if f.cursorPos
+		if f.cursorPos < len(f.Text) { // If the cursor is not at the very end (past text)...
+			lineRunes := []rune(f.Text)
+			copy(lineRunes[f.cursorPos:], lineRunes[f.cursorPos+1:]) // Shift characters after cursor left
+			lineRunes = lineRunes[:len(lineRunes)-1] // Shrink line
+			f.Text = string(lineRunes) // Update line with new runes
+		}
 	} else {
+		if f.cursorPos > 0 { // If the cursor is not at the beginning...
+			lineRunes := []rune(f.Text)
+			copy(lineRunes[f.cursorPos-1:], lineRunes[f.cursorPos:]) // Shift characters at cursor left
+			lineRunes = lineRunes[:len(lineRunes)-1] // Shrink line length
+			f.Text = string(lineRunes) // Update line with new runes
 
+			f.SetCursorPos(f.cursorPos-1) // Move cursor back
+		}
 	}
 }
 
@@ -112,10 +124,21 @@ func (f *InputField) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
 		switch ev.Key() {
+		// Cursor movement
 		case tcell.KeyLeft:
 			f.SetCursorPos(f.cursorPos - 1)
 		case tcell.KeyRight:
 			f.SetCursorPos(f.cursorPos + 1)
+
+		// Deleting
+		case tcell.KeyBackspace:
+			fallthrough
+		case tcell.KeyBackspace2:
+			f.Delete(false)
+		case tcell.KeyDelete:
+			f.Delete(true)
+
+		// Inserting
 		case tcell.KeyRune:
 			ch := ev.Rune()
 			f.Text += string(ch)
