@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -64,7 +65,7 @@ func NewMenuBar(theme *Theme) *MenuBar {
 
 func (b *MenuBar) AddMenu(menu *Menu) {
 	menu.itemSelectedCallback = func() {
-
+		// TODO: figure out what im doing here
 	}
 	b.Menus = append(b.Menus, menu)
 }
@@ -203,6 +204,32 @@ func NewMenu(name string, theme *Theme, items []Item) *Menu {
 	}
 }
 
+func (m *Menu) CursorUp() {
+	if m.selected <= 0 {
+		m.selected = len(m.Items) - 1 // Wrap to end
+	} else {
+		m.selected--
+	}
+	switch m.Items[m.selected].(type) {
+	case *ItemSeparator:
+		m.CursorUp() // Recursion; stack overflow if the only item in a Menu is a separator.
+	default:
+	}
+}
+
+func (m *Menu) CursorDown() {
+	if m.selected >= len(m.Items)-1 {
+		m.selected = 0 // Wrap to beginning
+	} else {
+		m.selected++
+	}
+	switch m.Items[m.selected].(type) {
+	case *ItemSeparator:
+		m.CursorDown() // Recursion; stack overflow if the only item in a Menu is a separator.
+	default:
+	}
+}
+
 // Draw renders the Menu at its position.
 func (m *Menu) Draw(s tcell.Screen) {
 	defaultStyle := m.Theme.GetOrDefault("Menu")
@@ -213,13 +240,21 @@ func (m *Menu) Draw(s tcell.Screen) {
 
 	// Draw items based on whether m.focused and which is selected
 	for i, item := range m.Items {
-		var sty tcell.Style
-		if m.selected == i {
-			sty = m.Theme.GetOrDefault("MenuSelected")
-		} else {
-			sty = defaultStyle
+		switch item.(type) {
+		case *ItemSeparator:
+			str := fmt.Sprintf("%s%s%s", "├", strings.Repeat("─", m.width-2), "┤")
+			DrawStr(s, m.x, m.y+1+i, str, defaultStyle)
+		default: // Handle sub-menus and item entries the same
+			var sty tcell.Style
+			if m.selected == i {
+				sty = m.Theme.GetOrDefault("MenuSelected")
+			} else {
+				sty = defaultStyle
+			}
+			itemName := item.GetName()
+			str := fmt.Sprintf("%s%s", itemName, strings.Repeat(" ", m.width-2-len(itemName)))
+			DrawStr(s, m.x+1, m.y+1+i, str, sty)
 		}
-		DrawStr(s, m.x+1, m.y+1+i, item.GetName(), sty)
 	}
 }
 
@@ -274,18 +309,10 @@ func (m *Menu) HandleEvent(event tcell.Event) bool {
 			}
 			return true
 		} else if ev.Key() == tcell.KeyUp {
-			if m.selected <= 0 {
-				m.selected = len(m.Items) - 1 // Wrap to end
-			} else {
-				m.selected--
-			}
+			m.CursorUp()
 			return true
 		} else if ev.Key() == tcell.KeyDown {
-			if m.selected >= len(m.Items)-1 {
-				m.selected = 0 // Wrap to beginning
-			} else {
-				m.selected++
-			}
+			m.CursorDown()
 			return true
 		}
 	}
