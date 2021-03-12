@@ -56,17 +56,17 @@ func (f *InputField) Delete(forward bool) {
 		if f.cursorPos < len(f.Text) { // If the cursor is not at the very end (past text)...
 			lineRunes := []rune(f.Text)
 			copy(lineRunes[f.cursorPos:], lineRunes[f.cursorPos+1:]) // Shift characters after cursor left
-			lineRunes = lineRunes[:len(lineRunes)-1] // Shrink line
-			f.Text = string(lineRunes) // Update line with new runes
+			lineRunes = lineRunes[:len(lineRunes)-1]                 // Shrink line
+			f.Text = string(lineRunes)                               // Update line with new runes
 		}
 	} else {
 		if f.cursorPos > 0 { // If the cursor is not at the beginning...
 			lineRunes := []rune(f.Text)
 			copy(lineRunes[f.cursorPos-1:], lineRunes[f.cursorPos:]) // Shift characters at cursor left
-			lineRunes = lineRunes[:len(lineRunes)-1] // Shrink line length
-			f.Text = string(lineRunes) // Update line with new runes
+			lineRunes = lineRunes[:len(lineRunes)-1]                 // Shrink line length
+			f.Text = string(lineRunes)                               // Update line with new runes
 
-			f.SetCursorPos(f.cursorPos-1) // Move cursor back
+			f.SetCursorPos(f.cursorPos - 1) // Move cursor back
 		}
 	}
 }

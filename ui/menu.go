@@ -184,8 +184,8 @@ type Menu struct {
 	Visible bool // True when focused
 
 	x, y                 int
-	width, height        int // Size may not be settable
-	selected             int // Index of selected Item
+	width, height        int    // Size may not be settable
+	selected             int    // Index of selected Item
 	itemSelectedCallback func() // Used internally to hide menus on selection
 
 	Theme *Theme

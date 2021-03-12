@@ -152,11 +152,11 @@ func (c *TabContainer) FocusTab(idx int) {
 	if idx < 0 {
 		idx = 0
 	} else if idx >= len(c.children) {
-		idx = len(c.children)-1
+		idx = len(c.children) - 1
 	}
 
 	c.children[c.selected].Child.SetFocused(false) // Unfocus old tab
-	c.children[idx].Child.SetFocused(true) // Focus new tab
+	c.children[idx].Child.SetFocused(true)         // Focus new tab
 	c.selected = idx
 }
 
