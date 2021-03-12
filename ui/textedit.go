@@ -239,10 +239,18 @@ func (t *TextEdit) SetLineCol(line, col int) {
 		t.scrolly = line
 	}
 
+	columnWidth := t.getColumnWidth()
+
+	// Scroll the screen horizontally when going to columns out of view
+	if col+tabOffset >= t.scrollx+(t.width-columnWidth-1) { // If the new column is right of view
+		t.scrollx = (col + tabOffset) - (t.width - columnWidth) + 1 // Scroll just enough to view that column
+	} else if col+tabOffset < t.scrollx { // If the new column is left of view
+		t.scrollx = col + tabOffset // Scroll left enough to view that column
+	}
+
 	t.cury, t.curx = line, col
 	if t.focused {
-		columnWidth := t.getColumnWidth()
-		(*t.screen).ShowCursor(t.x+columnWidth+col+tabOffset, t.y+line-t.scrolly)
+		(*t.screen).ShowCursor(t.x+columnWidth+col+tabOffset-t.scrollx, t.y+line-t.scrolly)
 	}
 }
 
@@ -317,7 +325,16 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 				lineStr = t.buffer[line]
 			}
 
-			DrawStr(s, t.x+columnWidth, lineY, lineStr, textEditStyle) // Draw line
+			lineRunes := []rune(lineStr)
+			if len(lineRunes) >= t.scrollx { // If some of the line is visible at our horizontal scroll...
+				lineRunes = lineRunes[t.scrollx:] // Trim left side of string we cannot see
+
+				if len(lineRunes) >= t.width-columnWidth { // If that trimmed line continues out of view to the right...
+					lineRunes = lineRunes[:t.width-columnWidth] // Trim right side of string we cannot see
+				}
+
+				DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), textEditStyle) // Draw line
+			}
 		}
 
 		columnStr := fmt.Sprintf("%s%s", strings.Repeat(" ", columnWidth-len(lineNumStr)), lineNumStr) // Right align line number
@@ -388,9 +405,9 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		case tcell.KeyEnd:
 			t.SetLineCol(t.cury, len(t.buffer[t.cury]))
 		case tcell.KeyPgUp:
-			t.SetLineCol(t.scrolly - t.height, t.curx) // Go a page up
+			t.SetLineCol(t.scrolly-t.height, t.curx) // Go a page up
 		case tcell.KeyPgDn:
-			t.SetLineCol(t.scrolly + t.height*2 - 1, t.curx) // Go a page down
+			t.SetLineCol(t.scrolly+t.height*2-1, t.curx) // Go a page down
 
 		// Deleting
 		case tcell.KeyBackspace:
