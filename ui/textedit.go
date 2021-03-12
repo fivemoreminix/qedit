@@ -181,6 +181,7 @@ func (t *TextEdit) Insert(contents string) {
 			t.SetLineCol(t.cury, t.curx+1) // Advance the cursor
 		}
 	}
+	t.prevCurCol = t.curx
 }
 
 // insertNewLine inserts a line break at the cursor and sets the cursor position to the first
@@ -198,6 +199,7 @@ func (t *TextEdit) insertNewLine() {
 	t.buffer[t.cury+1] = string(newLineRunes)      // Assign the new line
 
 	t.SetLineCol(t.cury+1, 0) // Go to start of new line
+	t.prevCurCol = t.curx
 }
 
 // GetLineCol returns (line, col) of the cursor. Zero is origin for both.
@@ -402,12 +404,16 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 			t.CursorRight()
 		case tcell.KeyHome:
 			t.SetLineCol(t.cury, 0)
+			t.prevCurCol = t.curx
 		case tcell.KeyEnd:
 			t.SetLineCol(t.cury, len(t.buffer[t.cury]))
+			t.prevCurCol = t.curx
 		case tcell.KeyPgUp:
 			t.SetLineCol(t.scrolly-t.height, t.curx) // Go a page up
+			t.prevCurCol = t.curx
 		case tcell.KeyPgDn:
 			t.SetLineCol(t.scrolly+t.height*2-1, t.curx) // Go a page down
+			t.prevCurCol = t.curx
 
 		// Deleting
 		case tcell.KeyBackspace:
