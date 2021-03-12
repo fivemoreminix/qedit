@@ -207,6 +207,16 @@ func (t *TextEdit) GetLineCol() (int, int) {
 	return t.cury, t.curx
 }
 
+// getTabOffsetInLineAtCol returns TabSize*tab_count in the given line, at that cursor position,
+// if hard tabs are enabled. If hard tabs are not enabled, the function returns zero.
+func (t *TextEdit) getTabOffsetInLineAtCol(idx, col int) int {
+	if t.UseHardTabs {
+		lineRunes := []rune(t.buffer[idx])
+		return (t.TabSize - 1) * strings.Count(string(lineRunes[:col]), "\t")
+	}
+	return 0
+}
+
 // SetLineCol sets the cursor line and column position. Zero is origin for both.
 // If `line` is out of bounds, `line` will be clamped to the closest available line.
 // If `col` is out of bounds, `col` will be clamped to the closest column available for the line.
@@ -229,10 +239,7 @@ func (t *TextEdit) SetLineCol(line, col int) {
 	}
 
 	// Handle hard tabs
-	tabOffset := 0     // Offset for the current column (temporary; purely visual)
-	if t.UseHardTabs { // If the file is encoded as tabs, not spaces...
-		tabOffset = (t.TabSize - 1) * strings.Count(string(lineRunes[0:col]), "\t") // Shift the cursor for tabs (they are rendered as spaces)
-	}
+	tabOffset := t.getTabOffsetInLineAtCol(line, col) // Offset for the current line from hard tabs (temporary; purely visual)
 
 	// Scroll the screen when going to lines out of view
 	if line >= t.scrolly+t.height-1 { // If the new line is below view...
@@ -258,7 +265,12 @@ func (t *TextEdit) SetLineCol(line, col int) {
 
 // CursorUp moves the cursor up a line.
 func (t *TextEdit) CursorUp() {
-	t.SetLineCol(t.cury-1, t.prevCurCol)
+	if t.cury <= 0 { // If the cursor is at the first line...
+		t.SetLineCol(t.cury, 0) // Go to beginning
+	} else {
+		tabOffset := t.getTabOffsetInLineAtCol(t.cury-1, t.prevCurCol)
+		t.SetLineCol(t.cury-1, t.prevCurCol-tabOffset)
+	}
 }
 
 // CursorDown moves the cursor down a line.
@@ -266,7 +278,8 @@ func (t *TextEdit) CursorDown() {
 	if t.cury >= len(t.buffer)-1 { // If the cursor is at the last line...
 		t.SetLineCol(t.cury, len(t.buffer[t.cury])) // Go to end of current line
 	} else {
-		t.SetLineCol(t.cury+1, t.prevCurCol) // Go to line below
+		tabOffset := t.getTabOffsetInLineAtCol(t.cury+1, t.prevCurCol)
+		t.SetLineCol(t.cury+1, t.prevCurCol-tabOffset) // Go to line below
 	}
 }
 
