@@ -170,8 +170,6 @@ func (t *TextEdit) Insert(contents string) {
 			}
 			fallthrough // Append the \t character
 		default:
-			// TODO: this operation is not efficient by any means. OPTIMIZE
-
 			// Insert character into line
 			lineRunes := []rune(t.buffer[t.cury])
 			lineRunes = append(lineRunes, ch)              // Extend the length of the string
@@ -219,17 +217,19 @@ func (t *TextEdit) SetLineCol(line, col int) {
 		line = len - 1 // Change that line to be the end of the buffer, instead
 	}
 
+	lineRunes := []rune(t.buffer[line])
+
 	// Clamp the column input
 	if col < 0 {
 		col = 0
-	} else if len := len(t.buffer[line]); col > len {
+	} else if len := len(lineRunes); col > len {
 		col = len
 	}
 
 	// Handle hard tabs
 	tabOffset := 0     // Offset for the current column (temporary; purely visual)
 	if t.UseHardTabs { // If the file is encoded as tabs, not spaces...
-		tabOffset = (t.TabSize - 1) * strings.Count(t.buffer[line][0:col], "\t") // Shift the cursor for tabs (they are rendered as spaces)
+		tabOffset = (t.TabSize - 1) * strings.Count(string(lineRunes[0:col]), "\t") // Shift the cursor for tabs (they are rendered as spaces)
 	}
 
 	// Scroll the screen when going to lines out of view
@@ -274,7 +274,7 @@ func (t *TextEdit) CursorLeft() {
 func (t *TextEdit) CursorRight() {
 	// If we are at the end of the current line,
 	// and not at the last line...
-	if t.curx >= len(t.buffer[t.cury]) && t.cury < len(t.buffer)-1 {
+	if t.curx >= len([]rune(t.buffer[t.cury])) && t.cury < len(t.buffer)-1 {
 		t.SetLineCol(t.cury+1, 0) // Go to beginning of line below
 	} else {
 		t.SetLineCol(t.cury, t.curx+1)
