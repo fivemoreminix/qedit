@@ -9,6 +9,13 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+// A Selection represents a region of the buffer to be selected for text editing
+// purposes. It is asserted that the start position is less than the end position.
+type Selection struct {
+	StartLine, StartCol int
+	EndLine, EndCol     int
+}
+
 // TextEdit is a field for line-based editing. It features syntax highlighting
 // tools, is autocomplete ready, and contains the various information about
 // content being edited.
@@ -217,11 +224,8 @@ func (t *TextEdit) getTabOffsetInLineAtCol(idx, col int) int {
 	return 0
 }
 
-// SetLineCol sets the cursor line and column position. Zero is origin for both.
-// If `line` is out of bounds, `line` will be clamped to the closest available line.
-// If `col` is out of bounds, `col` will be clamped to the closest column available for the line.
-// Will scroll the TextEdit just enough to see the line the cursor is at.
-func (t *TextEdit) SetLineCol(line, col int) {
+// clampLineCol clamps the line and col inputs to only valid values within the buffer.
+func (t *TextEdit) clampLineCol(line, col int) (int, int) {
 	// Clamp the line input
 	if line < 0 {
 		line = 0
@@ -237,6 +241,16 @@ func (t *TextEdit) SetLineCol(line, col int) {
 	} else if len := len(lineRunes); col > len {
 		col = len
 	}
+
+	return line, col
+}
+
+// SetLineCol sets the cursor line and column position. Zero is origin for both.
+// If `line` is out of bounds, `line` will be clamped to the closest available line.
+// If `col` is out of bounds, `col` will be clamped to the closest column available for the line.
+// Will scroll the TextEdit just enough to see the line the cursor is at.
+func (t *TextEdit) SetLineCol(line, col int) {
+	line, col = t.clampLineCol(line, col)
 
 	// Handle hard tabs
 	tabOffset := t.getTabOffsetInLineAtCol(line, col) // Offset for the current line from hard tabs (temporary; purely visual)
@@ -268,8 +282,9 @@ func (t *TextEdit) CursorUp() {
 	if t.cury <= 0 { // If the cursor is at the first line...
 		t.SetLineCol(t.cury, 0) // Go to beginning
 	} else {
-		tabOffset := t.getTabOffsetInLineAtCol(t.cury-1, t.prevCurCol)
-		t.SetLineCol(t.cury-1, t.prevCurCol-tabOffset)
+		line, col := t.clampLineCol(t.cury-1, t.prevCurCol)
+		tabOffset := t.getTabOffsetInLineAtCol(line, col)
+		t.SetLineCol(line, col-tabOffset)
 	}
 }
 
@@ -278,8 +293,9 @@ func (t *TextEdit) CursorDown() {
 	if t.cury >= len(t.buffer)-1 { // If the cursor is at the last line...
 		t.SetLineCol(t.cury, len(t.buffer[t.cury])) // Go to end of current line
 	} else {
-		tabOffset := t.getTabOffsetInLineAtCol(t.cury+1, t.prevCurCol)
-		t.SetLineCol(t.cury+1, t.prevCurCol-tabOffset) // Go to line below
+		line, col := t.clampLineCol(t.cury+1, t.prevCurCol)
+		tabOffset := t.getTabOffsetInLineAtCol(line, col)
+		t.SetLineCol(line, col-tabOffset) // Go to line below
 	}
 }
 
