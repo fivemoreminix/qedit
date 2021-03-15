@@ -36,8 +36,8 @@ type TextEdit struct {
 	prevCurCol       int // Previous maximum column the cursor was at, when the user pressed left or right
 	scrollx, scrolly int // X and Y offset of view, known as scroll
 
-	selection        Selection // Selection: nil is no selection
-	selectMode       bool // Whether the user is actively selecting text
+	selection  Selection // Selection: nil is no selection
+	selectMode bool      // Whether the user is actively selecting text
 
 	Theme *Theme
 }
@@ -289,7 +289,7 @@ func (t *TextEdit) CursorUp() {
 		if t.UseHardTabs { // When using hard tabs, subtract offsets produced by tabs
 			tabOffset := t.getTabOffsetInLineAtCol(t.cury-1, t.prevCurCol)
 			hardTabs := tabOffset / t.TabSize
-			col -= tabOffset-hardTabs // We still want to count each \t in the col
+			col -= tabOffset - hardTabs // We still want to count each \t in the col
 		}
 		line, col := t.clampLineCol(t.cury-1, col)
 		t.SetLineCol(line, col)
@@ -305,7 +305,7 @@ func (t *TextEdit) CursorDown() {
 		if t.UseHardTabs {
 			tabOffset := t.getTabOffsetInLineAtCol(t.cury+1, t.prevCurCol)
 			hardTabs := tabOffset / t.TabSize
-			col -= tabOffset-hardTabs // We still want to count each \t in the col
+			col -= tabOffset - hardTabs // We still want to count each \t in the col
 		}
 		line, col := t.clampLineCol(t.cury+1, col)
 		t.SetLineCol(line, col) // Go to line below
@@ -320,7 +320,7 @@ func (t *TextEdit) CursorLeft() {
 		t.SetLineCol(t.cury, t.curx-1)
 	}
 	tabOffset := t.getTabOffsetInLineAtCol(t.cury, t.curx)
-	t.prevCurCol = t.curx+tabOffset
+	t.prevCurCol = t.curx + tabOffset
 }
 
 // CursorRight moves the cursor right a column.
@@ -457,10 +457,10 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 					// Reset the selection to cursor pos
 					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					t.selectMode = true				
+					t.selectMode = true
 				}
 				t.CursorRight() // Advance the cursor
-				t.selection.EndLine, t.selection.EndCol = t.cury, t.curx				
+				t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 			} else {
 				if t.selectMode {
 					t.selectMode = false
