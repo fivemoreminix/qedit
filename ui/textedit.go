@@ -285,13 +285,12 @@ func (t *TextEdit) CursorUp() {
 	if t.cury <= 0 { // If the cursor is at the first line...
 		t.SetLineCol(t.cury, 0) // Go to beginning
 	} else {
-		col := t.prevCurCol
+		line, col := t.clampLineCol(t.cury-1, t.prevCurCol)
 		if t.UseHardTabs { // When using hard tabs, subtract offsets produced by tabs
-			tabOffset := t.getTabOffsetInLineAtCol(t.cury-1, t.prevCurCol)
+			tabOffset := t.getTabOffsetInLineAtCol(line, col)
 			hardTabs := tabOffset / t.TabSize
 			col -= tabOffset - hardTabs // We still want to count each \t in the col
 		}
-		line, col := t.clampLineCol(t.cury-1, col)
 		t.SetLineCol(line, col)
 	}
 }
@@ -301,13 +300,12 @@ func (t *TextEdit) CursorDown() {
 	if t.cury >= len(t.buffer)-1 { // If the cursor is at the last line...
 		t.SetLineCol(t.cury, len(t.buffer[t.cury])) // Go to end of current line
 	} else {
-		col := t.prevCurCol
+		line, col := t.clampLineCol(t.cury+1, t.prevCurCol)
 		if t.UseHardTabs {
-			tabOffset := t.getTabOffsetInLineAtCol(t.cury+1, t.prevCurCol)
+			tabOffset := t.getTabOffsetInLineAtCol(line, col)
 			hardTabs := tabOffset / t.TabSize
 			col -= tabOffset - hardTabs // We still want to count each \t in the col
 		}
-		line, col := t.clampLineCol(t.cury+1, col)
 		t.SetLineCol(line, col) // Go to line below
 	}
 }
@@ -382,6 +380,10 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 				// If the current line is part of a selected region...
 				if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine {
+					//selStartIdx := 0
+					if line == t.selection.StartLine {
+						//selStartIdx = t.selection.StartCol
+					}
 					// Draw the entire line selected
 					DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), selectedStyle)
 				} else {
