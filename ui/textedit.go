@@ -36,6 +36,9 @@ type TextEdit struct {
 	prevCurCol       int // Previous maximum column the cursor was at, when the user pressed left or right
 	scrollx, scrolly int // X and Y offset of view, known as scroll
 
+	selection        Selection // Selection: nil is no selection
+	selectMode       bool // Whether the user is actively selecting text
+
 	Theme *Theme
 }
 
@@ -282,9 +285,14 @@ func (t *TextEdit) CursorUp() {
 	if t.cury <= 0 { // If the cursor is at the first line...
 		t.SetLineCol(t.cury, 0) // Go to beginning
 	} else {
-		line, col := t.clampLineCol(t.cury-1, t.prevCurCol)
-		tabOffset := t.getTabOffsetInLineAtCol(line, col)
-		t.SetLineCol(line, col-tabOffset)
+		col := t.prevCurCol
+		if t.UseHardTabs { // When using hard tabs, subtract offsets produced by tabs
+			tabOffset := t.getTabOffsetInLineAtCol(t.cury-1, t.prevCurCol)
+			hardTabs := tabOffset / t.TabSize
+			col -= tabOffset-hardTabs // We still want to count each \t in the col
+		}
+		line, col := t.clampLineCol(t.cury-1, col)
+		t.SetLineCol(line, col)
 	}
 }
 
@@ -293,9 +301,14 @@ func (t *TextEdit) CursorDown() {
 	if t.cury >= len(t.buffer)-1 { // If the cursor is at the last line...
 		t.SetLineCol(t.cury, len(t.buffer[t.cury])) // Go to end of current line
 	} else {
-		line, col := t.clampLineCol(t.cury+1, t.prevCurCol)
-		tabOffset := t.getTabOffsetInLineAtCol(line, col)
-		t.SetLineCol(line, col-tabOffset) // Go to line below
+		col := t.prevCurCol
+		if t.UseHardTabs {
+			tabOffset := t.getTabOffsetInLineAtCol(t.cury+1, t.prevCurCol)
+			hardTabs := tabOffset / t.TabSize
+			col -= tabOffset-hardTabs // We still want to count each \t in the col
+		}
+		line, col := t.clampLineCol(t.cury+1, col)
+		t.SetLineCol(line, col) // Go to line below
 	}
 }
 
@@ -306,7 +319,8 @@ func (t *TextEdit) CursorLeft() {
 	} else {
 		t.SetLineCol(t.cury, t.curx-1)
 	}
-	t.prevCurCol = t.curx
+	tabOffset := t.getTabOffsetInLineAtCol(t.cury, t.curx)
+	t.prevCurCol = t.curx+tabOffset
 }
 
 // CursorRight moves the cursor right a column.
@@ -318,7 +332,8 @@ func (t *TextEdit) CursorRight() {
 	} else {
 		t.SetLineCol(t.cury, t.curx+1)
 	}
-	t.prevCurCol = t.curx
+	tabOffset := t.getTabOffsetInLineAtCol(t.cury, t.curx)
+	t.prevCurCol = t.curx + tabOffset
 }
 
 // getColumnWidth returns the width of the line numbers column if it is present.
@@ -337,6 +352,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 	bufferLen := len(t.buffer)
 
 	textEditStyle := t.Theme.GetOrDefault("TextEdit")
+	selectedStyle := t.Theme.GetOrDefault("TextEditSelected")
 	columnStyle := t.Theme.GetOrDefault("TextEditColumn")
 
 	DrawRect(s, t.x, t.y, t.width, t.height, ' ', textEditStyle) // Fill background
@@ -364,7 +380,13 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 					lineRunes = lineRunes[:t.width-columnWidth] // Trim right side of string we cannot see
 				}
 
-				DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), textEditStyle) // Draw line
+				// If the current line is part of a selected region...
+				if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine {
+					// Draw the entire line selected
+					DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), selectedStyle)
+				} else {
+					DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), textEditStyle) // Draw line
+				}
 			}
 		}
 
@@ -430,7 +452,21 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		case tcell.KeyLeft:
 			t.CursorLeft()
 		case tcell.KeyRight:
-			t.CursorRight()
+			if ev.Modifiers() == tcell.ModShift {
+				if !t.selectMode { // If we are not already selecting...
+					// Reset the selection to cursor pos
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					t.selectMode = true				
+				}
+				t.CursorRight() // Advance the cursor
+				t.selection.EndLine, t.selection.EndCol = t.cury, t.curx				
+			} else {
+				if t.selectMode {
+					t.selectMode = false
+				}
+				t.CursorRight()
+			}
 		case tcell.KeyHome:
 			t.SetLineCol(t.cury, 0)
 			t.prevCurCol = t.curx

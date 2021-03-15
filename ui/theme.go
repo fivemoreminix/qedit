@@ -42,6 +42,7 @@ var DefaultTheme = Theme{
 	"TabSelected":     tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
 	"TextEdit":        tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
 	"TextEditColumn":  tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorGray),
+	"TextEditSelected":tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
 	"Window":          tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
 	"WindowHeader":    tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite),
 }
