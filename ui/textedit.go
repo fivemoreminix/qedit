@@ -217,12 +217,15 @@ func (t *TextEdit) GetLineCol() (int, int) {
 	return t.cury, t.curx
 }
 
-// getTabOffsetInLineAtCol returns TabSize*tab_count in the given line, at that cursor position,
+// getTabCountInLineAtCol returns tabs in the given line, at or before that column position,
 // if hard tabs are enabled. If hard tabs are not enabled, the function returns zero.
-func (t *TextEdit) getTabOffsetInLineAtCol(idx, col int) int {
+// Multiply returned tab count by TabSize to get the offset produced by tabs.
+// Col must be a valid column position in the given line. Maybe call clampLineCol before
+// this function.
+func (t *TextEdit) getTabCountInLineAtCol(line, col int) int {
 	if t.UseHardTabs {
-		lineRunes := []rune(t.buffer[idx])
-		return (t.TabSize - 1) * strings.Count(string(lineRunes[:col]), "\t")
+		lineRunes := []rune(t.buffer[line])
+		return strings.Count(string(lineRunes[:col]), "\t")
 	}
 	return 0
 }
@@ -256,7 +259,7 @@ func (t *TextEdit) SetLineCol(line, col int) {
 	line, col = t.clampLineCol(line, col)
 
 	// Handle hard tabs
-	tabOffset := t.getTabOffsetInLineAtCol(line, col) // Offset for the current line from hard tabs (temporary; purely visual)
+	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1) // Offset for the current line from hard tabs (temporary; purely visual)
 
 	// Scroll the screen when going to lines out of view
 	if line >= t.scrolly+t.height-1 { // If the new line is below view...
@@ -287,9 +290,8 @@ func (t *TextEdit) CursorUp() {
 	} else {
 		line, col := t.clampLineCol(t.cury-1, t.prevCurCol)
 		if t.UseHardTabs { // When using hard tabs, subtract offsets produced by tabs
-			tabOffset := t.getTabOffsetInLineAtCol(line, col)
-			hardTabs := tabOffset / t.TabSize
-			col -= tabOffset - hardTabs // We still want to count each \t in the col
+			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1)
+			col -= tabOffset // We still count each \t in the col
 		}
 		t.SetLineCol(line, col)
 	}
@@ -302,9 +304,8 @@ func (t *TextEdit) CursorDown() {
 	} else {
 		line, col := t.clampLineCol(t.cury+1, t.prevCurCol)
 		if t.UseHardTabs {
-			tabOffset := t.getTabOffsetInLineAtCol(line, col)
-			hardTabs := tabOffset / t.TabSize
-			col -= tabOffset - hardTabs // We still want to count each \t in the col
+			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1)
+			col -= tabOffset // We still count each \t in the col
 		}
 		t.SetLineCol(line, col) // Go to line below
 	}
@@ -317,7 +318,7 @@ func (t *TextEdit) CursorLeft() {
 	} else {
 		t.SetLineCol(t.cury, t.curx-1)
 	}
-	tabOffset := t.getTabOffsetInLineAtCol(t.cury, t.curx)
+	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize-1)
 	t.prevCurCol = t.curx + tabOffset
 }
 
@@ -330,7 +331,7 @@ func (t *TextEdit) CursorRight() {
 	} else {
 		t.SetLineCol(t.cury, t.curx+1)
 	}
-	tabOffset := t.getTabOffsetInLineAtCol(t.cury, t.curx)
+	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize-1)
 	t.prevCurCol = t.curx + tabOffset
 }
 
@@ -355,6 +356,12 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 	DrawRect(s, t.x, t.y, t.width, t.height, ' ', textEditStyle) // Fill background
 
+	var tabStr string
+	if t.UseHardTabs {
+		// Only call strings.Repeat once for each draw in hard tab files
+		tabStr = strings.Repeat(" ", t.TabSize)
+	}
+
 	for lineY := t.y; lineY < t.y+t.height; lineY++ { // For each line we can draw...
 		line := lineY + t.scrolly - t.y // The line number being drawn (starts at zero)
 
@@ -365,7 +372,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 			var lineStr string // Line to be drawn
 			if t.UseHardTabs {
-				lineStr = strings.ReplaceAll(t.buffer[line], "\t", strings.Repeat(" ", t.TabSize))
+				lineStr = strings.ReplaceAll(t.buffer[line], "\t", tabStr)
 			} else {
 				lineStr = t.buffer[line]
 			}
@@ -380,12 +387,27 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 				// If the current line is part of a selected region...
 				if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine {
-					//selStartIdx := 0
-					if line == t.selection.StartLine {
-						//selStartIdx = t.selection.StartCol
+					selStartIdx := 0
+					if line == t.selection.StartLine { // If the selection begins somewhere in the line...
+						tabCount := t.getTabCountInLineAtCol(line, t.selection.StartCol)
+						selStartIdx = t.selection.StartCol + tabCount*(t.TabSize-1) - t.scrollx
 					}
-					// Draw the entire line selected
-					DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), selectedStyle)
+					selEndIdx := len(lineRunes) // Not inclusive
+					if line == t.selection.EndLine { // If the selection ends somewhere in the line...
+						tabCount := t.getTabCountInLineAtCol(line, t.selection.EndCol)
+						selEndIdx = t.selection.EndCol + 1 + tabCount*(t.TabSize-1) - t.scrollx
+					}
+
+					currentStyle := textEditStyle
+					for i, ch := range lineRunes {
+						if i == selStartIdx {
+							currentStyle = selectedStyle // begin drawing selected
+						} else if i == selEndIdx {
+							currentStyle = textEditStyle // reset style
+						}
+						// Draw the character
+						s.SetContent(t.x+columnWidth+i, lineY, ch, nil, currentStyle)
+					}
 				} else {
 					DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), textEditStyle) // Draw line
 				}
