@@ -471,11 +471,60 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		switch ev.Key() {
 		// Cursor movement
 		case tcell.KeyUp:
-			t.CursorUp()
+			if ev.Modifiers() == tcell.ModShift {
+				if !t.selectMode {
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					t.selectMode = true
+				}
+				prevCurX, prevCurY := t.curx, t.cury
+				t.CursorUp()
+				// 
+				if prevCurY <= t.selection.StartLine && prevCurX <= t.selection.StartCol {
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				} else {
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				}
+			} else {
+				t.selectMode = false
+				t.CursorUp()
+			}
 		case tcell.KeyDown:
-			t.CursorDown()
+			if ev.Modifiers() == tcell.ModShift {
+				if !t.selectMode {
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					t.selectMode = true
+				}
+				prevCurX, prevCurY := t.curx, t.cury
+				t.CursorDown()
+				if prevCurY >= t.selection.EndLine && prevCurX >= t.selection.EndCol {
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				} else {
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				}
+			} else {
+				t.selectMode = false
+				t.CursorDown()
+			}
 		case tcell.KeyLeft:
-			t.CursorLeft()
+			if ev.Modifiers() == tcell.ModShift {
+				if !t.selectMode {
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					t.selectMode = true
+				}
+				prevCurX, prevCurY := t.curx, t.cury
+				t.CursorLeft()
+				if prevCurY == t.selection.StartLine && prevCurX == t.selection.StartCol { // We are moving the start...
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				} else {
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				}
+			} else {
+				t.selectMode = false
+				t.CursorLeft()
+			}
 		case tcell.KeyRight:
 			if ev.Modifiers() == tcell.ModShift {
 				if !t.selectMode { // If we are not already selecting...
@@ -484,12 +533,15 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 					t.selectMode = true
 				}
+				prevCurX, prevCurY := t.curx, t.cury
 				t.CursorRight() // Advance the cursor
-				t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-			} else {
-				if t.selectMode {
-					t.selectMode = false
+				if prevCurY == t.selection.EndLine && prevCurX == t.selection.EndCol {
+					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				} else {
+					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 				}
+			} else {
+				t.selectMode = false
 				t.CursorRight()
 			}
 		case tcell.KeyHome:
