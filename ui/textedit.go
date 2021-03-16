@@ -387,12 +387,13 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 				// If the current line is part of a selected region...
 				if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine {
-					selStartIdx := 0
+					selStartIdx := t.scrollx
 					if line == t.selection.StartLine { // If the selection begins somewhere in the line...
+						// Account for hard tabs						
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.StartCol)
 						selStartIdx = t.selection.StartCol + tabCount*(t.TabSize-1) - t.scrollx
 					}
-					selEndIdx := len(lineRunes) // Not inclusive
+					selEndIdx := len(lineRunes)-t.scrollx // Not inclusive
 					if line == t.selection.EndLine { // If the selection ends somewhere in the line...
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.EndCol)
 						selEndIdx = t.selection.EndCol + 1 + tabCount*(t.TabSize-1) - t.scrollx
