@@ -259,7 +259,7 @@ func (t *TextEdit) SetLineCol(line, col int) {
 	line, col = t.clampLineCol(line, col)
 
 	// Handle hard tabs
-	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1) // Offset for the current line from hard tabs (temporary; purely visual)
+	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1) // Offset for the current line from hard tabs (temporary; purely visual)
 
 	// Scroll the screen when going to lines out of view
 	if line >= t.scrolly+t.height-1 { // If the new line is below view...
@@ -290,7 +290,7 @@ func (t *TextEdit) CursorUp() {
 	} else {
 		line, col := t.clampLineCol(t.cury-1, t.prevCurCol)
 		if t.UseHardTabs { // When using hard tabs, subtract offsets produced by tabs
-			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1)
+			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1)
 			col -= tabOffset // We still count each \t in the col
 		}
 		t.SetLineCol(line, col)
@@ -304,7 +304,7 @@ func (t *TextEdit) CursorDown() {
 	} else {
 		line, col := t.clampLineCol(t.cury+1, t.prevCurCol)
 		if t.UseHardTabs {
-			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1)
+			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1)
 			col -= tabOffset // We still count each \t in the col
 		}
 		t.SetLineCol(line, col) // Go to line below
@@ -318,7 +318,7 @@ func (t *TextEdit) CursorLeft() {
 	} else {
 		t.SetLineCol(t.cury, t.curx-1)
 	}
-	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize-1)
+	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize - 1)
 	t.prevCurCol = t.curx + tabOffset
 }
 
@@ -331,7 +331,7 @@ func (t *TextEdit) CursorRight() {
 	} else {
 		t.SetLineCol(t.cury, t.curx+1)
 	}
-	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize-1)
+	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize - 1)
 	t.prevCurCol = t.curx + tabOffset
 }
 
@@ -389,12 +389,12 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 				if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine {
 					selStartIdx := t.scrollx
 					if line == t.selection.StartLine { // If the selection begins somewhere in the line...
-						// Account for hard tabs						
+						// Account for hard tabs
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.StartCol)
 						selStartIdx = t.selection.StartCol + tabCount*(t.TabSize-1) - t.scrollx
 					}
-					selEndIdx := len(lineRunes)-t.scrollx // Not inclusive
-					if line == t.selection.EndLine { // If the selection ends somewhere in the line...
+					selEndIdx := len(lineRunes) - t.scrollx // Not inclusive
+					if line == t.selection.EndLine {        // If the selection ends somewhere in the line...
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.EndCol)
 						selEndIdx = t.selection.EndCol + 1 + tabCount*(t.TabSize-1) - t.scrollx
 					}
