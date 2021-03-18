@@ -11,7 +11,11 @@ import (
 
 // A Selection represents a region of the buffer to be selected for text editing
 // purposes. It is asserted that the start position is less than the end position.
-type Selection struct {
+// The start and end are inclusive. If the EndCol of a Region is one more than the
+// last column of a line, then it points to the line delimiter at the end of that
+// line. It is understood that as a Region spans multiple lines, those connecting
+// line-delimiters are included, as well.
+type Region struct {
 	StartLine, StartCol int
 	EndLine, EndCol     int
 }
@@ -36,8 +40,8 @@ type TextEdit struct {
 	prevCurCol       int // Previous maximum column the cursor was at, when the user pressed left or right
 	scrollx, scrolly int // X and Y offset of view, known as scroll
 
-	selection  Selection // Selection: nil is no selection
-	selectMode bool      // Whether the user is actively selecting text
+	selection  Region // Selection: selectMode determines if it should be used
+	selectMode bool   // Whether the user is actively selecting text
 
 	Theme *Theme
 }
@@ -82,12 +86,17 @@ loop:
 	t.buffer = strings.Split(contents, delimiter) // Split contents into lines
 }
 
-func (t *TextEdit) String() string {
-	delimiter := "\n"
+// GetLineDelimiter returns "\r\n" for a CRLF buffer, or "\n" for an LF buffer.
+func (t *TextEdit) GetLineDelimiter() string {
 	if t.IsCRLF {
-		delimiter = "\r\n"
+		return "\r\n"
+	} else {
+		return "\n"
 	}
-	return strings.Join(t.buffer, delimiter)
+}
+
+func (t *TextEdit) String() string {
+	return strings.Join(t.buffer, t.GetLineDelimiter())
 }
 
 // Changes a file's line delimiters. If `crlf` is true, then line delimiters are replaced
@@ -102,6 +111,21 @@ func (t *TextEdit) ChangeLineDelimiters(crlf bool) {
 // while Delete with `forwards` true will delete the character after (or on) the cursor.
 // In insert mode, forwards is always true.
 func (t *TextEdit) Delete(forwards bool) {
+	if t.selectMode { // If text is selected, delete the whole selection
+		t.cury, t.curx = t.clampLineCol(t.selection.EndLine, t.selection.EndCol)
+		t.selectMode = false // Disable selection and prevent infinite loop
+
+		t.Delete(true) // Delete last character of selection first
+		// Delete from end, backwards, until we are at the start of the selection
+		for { // TODO: inefficient
+			if t.cury == t.selection.StartLine && t.curx == t.selection.StartCol {
+				break
+			}
+			t.Delete(false) // NOTE: we want to delete start column as well.
+		}
+		return
+	}
+
 	// TODO: deleting through lines
 	if forwards { // Delete the character after the cursor
 		if t.curx < len(t.buffer[t.cury]) { // If the cursor is not at the end of the line...
@@ -146,8 +170,13 @@ func (t *TextEdit) Delete(forwards bool) {
 }
 
 // Writes `contents` at the cursor position. Line delimiters and tab character supported.
-// Any other control characters will be printed.
+// Any other control characters will be printed. Overwrites any active selection.
 func (t *TextEdit) Insert(contents string) {
+	if t.selectMode { // If there is a selection...
+		// Go to and delete the selection
+		t.Delete(true) // The parameter doesn't matter with selection		
+	}
+
 	runes := []rune(contents)
 	for i := 0; i < len(runes); i++ {
 		ch := runes[i]
@@ -278,8 +307,10 @@ func (t *TextEdit) SetLineCol(line, col int) {
 	}
 
 	t.cury, t.curx = line, col
-	if t.focused {
+	if t.focused && !t.selectMode {
 		(*t.screen).ShowCursor(t.x+columnWidth+col+tabOffset-t.scrollx, t.y+line-t.scrolly)
+	} else {
+		(*t.screen).HideCursor()
 	}
 }
 
@@ -345,6 +376,29 @@ func (t *TextEdit) getColumnWidth() int {
 	return columnWidth
 }
 
+// GetSelectedString returns a string of the region of the buffer that is currently selected.
+// If the returned string is empty, then nothing was selected.
+func (t *TextEdit) GetSelectedString() string {
+	if t.selectMode {
+		lines := make([]string, t.selection.EndLine-t.selection.StartLine+1)
+		copy(lines, t.buffer[t.selection.StartLine:t.selection.EndLine+1])
+
+		// Start last line at end col
+		lastLine := lines[len(lines)-1]
+		if t.selection.EndCol >= len(lastLine) { // If the line delimiter of the last line is selected...
+			// Don't access out-of-bounds and include the line delimiter
+			lastLine = string([]rune(lastLine)[:t.selection.EndCol]) + t.GetLineDelimiter()		
+		} else { // Normal access
+			lastLine = string([]rune(lastLine)[:t.selection.EndCol+1])
+		}
+
+		lines[0] = string([]rune(lines[0])[t.selection.StartCol:]) // Start first line at start col
+
+		return strings.Join(lines, t.GetLineDelimiter())
+	}
+	return ""
+}
+
 // Draw renders the TextEdit component.
 func (t *TextEdit) Draw(s tcell.Screen) {
 	columnWidth := t.getColumnWidth()
@@ -393,21 +447,27 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.StartCol)
 						selStartIdx = t.selection.StartCol + tabCount*(t.TabSize-1) - t.scrollx
 					}
-					selEndIdx := len(lineRunes) - t.scrollx // Not inclusive
+					selEndIdx := len(lineRunes) - t.scrollx // used inclusively
 					if line == t.selection.EndLine {        // If the selection ends somewhere in the line...
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.EndCol)
-						selEndIdx = t.selection.EndCol + 1 + tabCount*(t.TabSize-1) - t.scrollx
+						selEndIdx = t.selection.EndCol + tabCount*(t.TabSize-1) - t.scrollx
 					}
 
+					// NOTE: a special draw function just for selections. Should combine this with ordinary draw
 					currentStyle := textEditStyle
-					for i, ch := range lineRunes {
+					for i := 0; i < t.width-columnWidth; i++ { // For each column we can draw
 						if i == selStartIdx {
 							currentStyle = selectedStyle // begin drawing selected
-						} else if i == selEndIdx {
+						} else if i > selEndIdx {
 							currentStyle = textEditStyle // reset style
 						}
-						// Draw the character
-						s.SetContent(t.x+columnWidth+i, lineY, ch, nil, currentStyle)
+
+						r := ' ' // Rune to draw
+						if i < len(lineRunes) { // While we're drawing the line
+							r = lineRunes[i]
+						}
+
+						s.SetContent(t.x+columnWidth+i, lineY, r, nil, currentStyle)
 					}
 				} else {
 					DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), textEditStyle) // Draw line
@@ -476,14 +536,15 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 					t.selectMode = true
-				}
-				prevCurX, prevCurY := t.curx, t.cury
-				t.CursorUp()
-				// 
-				if prevCurY <= t.selection.StartLine && prevCurX <= t.selection.StartCol {
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 				} else {
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					prevCurX, prevCurY := t.curx, t.cury
+					t.CursorUp()
+					// Grow the selection in the correct direction
+					if prevCurY <= t.selection.StartLine && prevCurX <= t.selection.StartCol {
+						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					} else {
+						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					}
 				}
 			} else {
 				t.selectMode = false
@@ -495,13 +556,14 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 					t.selectMode = true
-				}
-				prevCurX, prevCurY := t.curx, t.cury
-				t.CursorDown()
-				if prevCurY >= t.selection.EndLine && prevCurX >= t.selection.EndCol {
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 				} else {
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					prevCurX, prevCurY := t.curx, t.cury
+					t.CursorDown()
+					if prevCurY >= t.selection.EndLine && prevCurX >= t.selection.EndCol {
+						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					} else {
+						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					}
 				}
 			} else {
 				t.selectMode = false
@@ -513,13 +575,14 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 					t.selectMode = true
-				}
-				prevCurX, prevCurY := t.curx, t.cury
-				t.CursorLeft()
-				if prevCurY == t.selection.StartLine && prevCurX == t.selection.StartCol { // We are moving the start...
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 				} else {
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					prevCurX, prevCurY := t.curx, t.cury
+					t.CursorLeft()
+					if prevCurY == t.selection.StartLine && prevCurX == t.selection.StartCol { // We are moving the start...
+						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					} else {
+						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					}
 				}
 			} else {
 				t.selectMode = false
@@ -532,13 +595,14 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 					t.selectMode = true
-				}
-				prevCurX, prevCurY := t.curx, t.cury
-				t.CursorRight() // Advance the cursor
-				if prevCurY == t.selection.EndLine && prevCurX == t.selection.EndCol {
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 				} else {
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					prevCurX, prevCurY := t.curx, t.cury
+					t.CursorRight() // Advance the cursor
+					if prevCurY == t.selection.EndLine && prevCurX == t.selection.EndCol {
+						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+					} else {
+						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+					}
 				}
 			} else {
 				t.selectMode = false
