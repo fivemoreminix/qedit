@@ -572,6 +572,7 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		case tcell.KeyLeft:
 			if ev.Modifiers() == tcell.ModShift {
 				if !t.selectMode {
+					t.CursorLeft() // We want the character to the left to be selected only (think insert)
 					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
 					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
 					t.selectMode = true
