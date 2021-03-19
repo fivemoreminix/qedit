@@ -34,18 +34,16 @@ func main() {
 	}
 	defer s.Fini() // Useful for handling panics
 
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		s.Fini()
-	// 		fmt.Fprintln(os.Stderr, err)
-	// 	}
-	// }()
-
 	sizex, sizey := s.Size()
 
 	tabContainer := ui.NewTabContainer(&theme)
 	tabContainer.SetPos(0, 1)
 	tabContainer.SetSize(sizex, sizey-1)
+
+	_, err := ClipInitialize(ClipExternal)
+	if err != nil {
+		panic(err)
+	}
 
 	// Load files from command-line arguments
 	if len(os.Args) > 1 {
@@ -148,8 +146,37 @@ func main() {
 		os.Exit(0)
 	}}}))
 
-	bar.AddMenu(ui.NewMenu("Edit", &theme, []ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
-		s.Beep()
+	bar.AddMenu(ui.NewMenu("Edit", &theme, []ui.Item{&ui.ItemEntry{Name: "Cut", Callback: func() {
+		if tabContainer.GetTabCount() > 0 {
+			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
+			te := tab.Child.(*ui.TextEdit)
+			selectedStr := te.GetSelectedString()
+			if selectedStr != "" { // If something is selected...
+				te.Delete(false) // Delete the selection
+				// TODO: better error handling within editor
+				_ = ClipWrite(selectedStr) // Add the selectedStr to clipboard
+			}
+		}
+	}}, &ui.ItemEntry{Name: "Copy", Callback: func() {
+		if tabContainer.GetTabCount() > 0 {
+			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
+			te := tab.Child.(*ui.TextEdit)
+			selectedStr := te.GetSelectedString()
+			if selectedStr != "" { // If there is something selected...
+				_ = ClipWrite(selectedStr) // Add selectedStr to clipboard
+			}
+		}
+	}}, &ui.ItemEntry{Name: "Paste", Callback: func() {
+		if tabContainer.GetTabCount() > 0 {
+			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
+			te := tab.Child.(*ui.TextEdit)
+			
+			contents, err := ClipRead()
+			if err != nil {
+				panic(err)
+			}
+			te.Insert(contents)
+		}
 	}}}))
 
 	bar.AddMenu(ui.NewMenu("Search", &theme, []ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
