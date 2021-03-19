@@ -170,7 +170,7 @@ func main() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
-			
+
 			contents, err := ClipRead()
 			if err != nil {
 				panic(err)

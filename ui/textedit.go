@@ -174,7 +174,7 @@ func (t *TextEdit) Delete(forwards bool) {
 func (t *TextEdit) Insert(contents string) {
 	if t.selectMode { // If there is a selection...
 		// Go to and delete the selection
-		t.Delete(true) // The parameter doesn't matter with selection		
+		t.Delete(true) // The parameter doesn't matter with selection
 	}
 
 	runes := []rune(contents)
@@ -387,7 +387,7 @@ func (t *TextEdit) GetSelectedString() string {
 		lastLine := lines[len(lines)-1]
 		if t.selection.EndCol >= len(lastLine) { // If the line delimiter of the last line is selected...
 			// Don't access out-of-bounds and include the line delimiter
-			lastLine = string([]rune(lastLine)[:t.selection.EndCol]) + t.GetLineDelimiter()		
+			lastLine = string([]rune(lastLine)[:t.selection.EndCol]) + t.GetLineDelimiter()
 		} else { // Normal access
 			lastLine = string([]rune(lastLine)[:t.selection.EndCol+1])
 		}
@@ -463,7 +463,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 							currentStyle = textEditStyle // reset style
 						}
 
-						r := ' ' // Rune to draw
+						r := ' '                // Rune to draw
 						if i < len(lineRunes) { // While we're drawing the line
 							r = lineRunes[i]
 						}
