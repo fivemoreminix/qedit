@@ -391,6 +391,7 @@ func (t *TextEdit) GetSelectedString() string {
 		} else { // Normal access
 			lastLine = string([]rune(lastLine)[:t.selection.EndCol+1])
 		}
+		lines[len(lines)-1] = lastLine
 
 		lines[0] = string([]rune(lines[0])[t.selection.StartCol:]) // Start first line at start col
 
