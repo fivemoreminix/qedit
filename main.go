@@ -70,8 +70,9 @@ func main() {
 
 	barFocused := false
 
-	// TODO: load menus in another function
-	bar.AddMenu(ui.NewMenu("File", &theme, []ui.Item{&ui.ItemEntry{Name: "New File", Callback: func() {
+	fileMenu := ui.NewMenu("File", &theme)
+
+	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New File", Callback: func() {
 		textEdit := ui.NewTextEdit(&s, "", "", &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
 	}}, &ui.ItemEntry{Name: "Open...", Callback: func() {
@@ -144,9 +145,11 @@ func main() {
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Exit", Callback: func() {
 		s.Fini()
 		os.Exit(0)
-	}}}))
+	}}})
 
-	bar.AddMenu(ui.NewMenu("Edit", &theme, []ui.Item{&ui.ItemEntry{Name: "Cut", Callback: func() {
+	editMenu := ui.NewMenu("Edit", &theme)
+
+	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Cut", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -177,11 +180,17 @@ func main() {
 			}
 			te.Insert(contents)
 		}
-	}}}))
+	}}})
 
-	bar.AddMenu(ui.NewMenu("Search", &theme, []ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
+	searchMenu := ui.NewMenu("Search", &theme)
+
+	searchMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
 		s.Beep()
-	}}}))
+	}}})
+
+	bar.AddMenu(fileMenu)
+	bar.AddMenu(editMenu)
+	bar.AddMenu(searchMenu)
 
 	changeFocus(tabContainer) // TabContainer is focused by default
 

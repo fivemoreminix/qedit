@@ -51,7 +51,8 @@ type MenuBar struct {
 	x, y          int
 	width, height int
 	focused       bool
-	selected      int // Index of selection in MenuBar
+	selected      int   // Index of selection in MenuBar
+	menusVisible   bool // Whether to draw the selected menu
 
 	Theme *Theme
 }
@@ -65,7 +66,8 @@ func NewMenuBar(theme *Theme) *MenuBar {
 
 func (b *MenuBar) AddMenu(menu *Menu) {
 	menu.itemSelectedCallback = func() {
-		// TODO: figure out what im doing here
+		b.menusVisible = false
+		menu.SetFocused(false)
 	}
 	b.Menus = append(b.Menus, menu)
 }
@@ -84,7 +86,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	normalStyle := b.Theme.GetOrDefault("MenuBar")
 
 	// Draw menus based on whether b.focused and which is selected
-	DrawRect(s, b.x, b.y, 200, 1, ' ', normalStyle) // TODO: calculate actual width
+	DrawRect(s, b.x, b.y, b.width, 1, ' ', normalStyle)
 	col := b.x + 1
 	for i, item := range b.Menus {
 		str := fmt.Sprintf(" %s ", item.Name) // Surround the name in spaces
@@ -98,7 +100,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 		col += len(str)
 	}
 
-	if b.Menus[b.selected].Visible {
+	if b.menusVisible {
 		menu := b.Menus[b.selected]
 		menu.Draw(s) // Draw menu when it is expanded / visible
 	}
@@ -107,8 +109,12 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 // SetFocused highlights the MenuBar and focuses any sub-menus.
 func (b *MenuBar) SetFocused(v bool) {
 	b.focused = v
+	b.Menus[b.selected].SetFocused(v)
 	if !v {
-		b.Menus[b.selected].SetFocused(false)
+		b.selected = 0 // Reset cursor position every time component is unfocused
+		if b.menusVisible {
+			b.menusVisible = false
+		}
 	}
 }
 
@@ -145,11 +151,19 @@ func (b *MenuBar) SetSize(width, height int) {
 func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
-		if ev.Key() == tcell.KeyEnter && !b.Menus[b.selected].Visible {
-			menu := &b.Menus[b.selected]
-			(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
-			(*menu).SetFocused(true) // Makes .Visible true for the Menu
-		} else if ev.Key() == tcell.KeyLeft {
+		switch ev.Key() {
+		case tcell.KeyEnter:
+			if !b.menusVisible { // If menus are not visible...
+				b.menusVisible = true
+
+				menu := &b.Menus[b.selected]
+				(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
+				(*menu).SetFocused(true) // Makes .Visible true for the Menu
+			} else { // The selected Menu is visible, send the event to it
+				return b.Menus[b.selected].HandleEvent(event)				
+			}
+		case tcell.KeyLeft:
+			b.Menus[b.selected].SetFocused(false) // Unfocus current menu
 			if b.selected <= 0 {
 				b.selected = len(b.Menus) - 1 // Wrap to end
 			} else {
@@ -157,7 +171,9 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 			}
 			// Update position of new menu after changing menu selection
 			b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
-		} else if ev.Key() == tcell.KeyRight {
+			b.Menus[b.selected].SetFocused(true) // Focus new menu
+		case tcell.KeyRight:
+			b.Menus[b.selected].SetFocused(false)
 			if b.selected >= len(b.Menus)-1 {
 				b.selected = 0 // Wrap to beginning
 			} else {
@@ -165,8 +181,26 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 			}
 			// Update position of new menu after changing menu selection
 			b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
-		} else {
-			if b.Menus[b.selected].Visible {
+			b.Menus[b.selected].SetFocused(true) // Focus new menu
+
+		case tcell.KeyRune: // Search for the matching quick char in menu names
+			if !b.menusVisible { // If the selected Menu is not open/visible
+				for _, m := range b.Menus {
+					found, r := QuickCharInString(m.Name)
+					if found && r == ev.Rune() {
+						b.menusVisible = true
+
+						menu := &b.Menus[b.selected]
+						(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
+						(*menu).SetFocused(true)
+					}
+				}
+			} else {
+				return b.Menus[b.selected].HandleEvent(event) // Have menu handle quick char event
+			}
+
+		default:
+			if b.menusVisible {
 				return b.Menus[b.selected].HandleEvent(event)
 			} else {
 				return false // Nobody to propogate our event to
@@ -181,7 +215,6 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 type Menu struct {
 	Name    string
 	Items   []Item
-	Visible bool // True when focused
 
 	x, y                 int
 	width, height        int    // Size may not be settable
@@ -192,16 +225,38 @@ type Menu struct {
 }
 
 // New creates a new Menu. `items` can be `nil`.
-func NewMenu(name string, theme *Theme, items []Item) *Menu {
-	if items == nil {
-		items = make([]Item, 0, 6)
-	}
-
+func NewMenu(name string, theme *Theme) *Menu {
 	return &Menu{
 		Name:  name,
-		Items: items,
+		Items: make([]Item, 0, 6),
 		Theme: theme,
 	}
+}
+
+func (m *Menu) AddItem(item Item) {
+	switch typ := item.(type) {
+	case *Menu:
+		typ.itemSelectedCallback = func() {
+			m.itemSelectedCallback()
+		}
+	}
+	m.Items = append(m.Items, item)
+}
+
+func (m *Menu) AddItems(items []Item) {
+	for _, item := range items {
+		m.AddItem(item)
+	}
+}
+
+func (m *Menu) ActivateItemUnderCursor() {
+	switch item := m.Items[m.selected].(type) {
+	case *ItemEntry:
+		item.Callback()
+		m.itemSelectedCallback()
+	case *Menu:
+		// TODO: implement sub-menus ...
+	}	
 }
 
 func (m *Menu) CursorUp() {
@@ -260,7 +315,10 @@ func (m *Menu) Draw(s tcell.Screen) {
 
 // SetFocused does not do anything for a Menu.
 func (m *Menu) SetFocused(v bool) {
-	m.Visible = v
+	// TODO: when adding sub-menus, set all focus to v
+	if !v {
+		m.selected = 0
+	}
 }
 
 // GetPos returns the position of the Menu.
@@ -299,22 +357,28 @@ func (m *Menu) HandleEvent(event tcell.Event) bool {
 	// TODO: simplify this function
 	switch ev := event.(type) {
 	case *tcell.EventKey:
-		if ev.Key() == tcell.KeyEnter {
-			m.SetFocused(false) // Hides the menu
-			switch item := m.Items[m.selected].(type) {
-			case *ItemEntry:
-				item.Callback()
-			case *Menu:
-				// TODO: implement sub-menus ...
-			}
-			return true
-		} else if ev.Key() == tcell.KeyUp {
+		switch ev.Key() {
+		case tcell.KeyEnter:
+			m.ActivateItemUnderCursor()
+		case tcell.KeyUp:
 			m.CursorUp()
-			return true
-		} else if ev.Key() == tcell.KeyDown {
+		case tcell.KeyDown:
 			m.CursorDown()
-			return true
+
+		case tcell.KeyRune:
+			// TODO: support quick chars for sub-menus
+			for i, item := range m.Items {
+				found, r := QuickCharInString(item.GetName())
+				if found && r == ev.Rune() {
+					m.selected = i
+					m.ActivateItemUnderCursor()
+				}
+			}
+
+		default:
+			return false
 		}
+		return true
 	}
 	return false
 }
