@@ -9,57 +9,69 @@ import (
 
 // Item is an interface implemented by ItemEntry and ItemMenu to be listed in Menus.
 type Item interface {
-	isItem()
 	GetName() string
+	// GetShortcut returns the shortcut character to activate the Item without opening
+	// the Menu. For example, if the shortcut were 'a', then the user would have to press
+	// `Ctrl + a`. If the shortcut were 'A', then the user would press `Ctrl + Shift + a`.
+	// The zero value means "no shortcut".
+	GetShortcut() rune
 }
 
 // An ItemSeparator is like a blank Item that cannot actually be selected. It is useful
 // for separating items in a Menu.
 type ItemSeparator struct{}
 
-func (i *ItemSeparator) isItem() {}
-
 // GetName returns an empty string.
 func (i *ItemSeparator) GetName() string {
 	return ""
+}
+
+func (i *ItemSeparator) GetShortcut() rune {
+	return 0
 }
 
 // ItemEntry is a listing in a Menu with a name and callback.
 type ItemEntry struct {
 	Name     string
 	Callback func()
+	Shortcut rune
 }
-
-func (i *ItemEntry) isItem() {}
 
 // GetName returns the name of the ItemEntry.
 func (i *ItemEntry) GetName() string {
 	return i.Name
 }
 
-func (m *Menu) isItem() {}
+func (i *ItemEntry) GetShortcut() rune {
+	return i.Shortcut
+}
 
 // GetName returns the name of the Menu.
 func (m *Menu) GetName() string {
 	return m.Name
 }
 
+func (m *Menu) GetShortcut() rune {
+	return 0 // Menus don't have shortcuts
+}
+
 // A MenuBar is a horizontal list of menus.
 type MenuBar struct {
-	Menus []*Menu
+	ItemSelectedCallback func()
 
+	menus         []*Menu
 	x, y          int
 	width, height int
 	focused       bool
 	selected      int   // Index of selection in MenuBar
-	menusVisible   bool // Whether to draw the selected menu
+	menusVisible  bool // Whether to draw the selected menu
 
 	Theme *Theme
 }
 
 func NewMenuBar(theme *Theme) *MenuBar {
 	return &MenuBar{
-		Menus: make([]*Menu, 0, 6),
+		menus: make([]*Menu, 0, 6),
 		Theme: theme,
 	}
 }
@@ -68,50 +80,54 @@ func (b *MenuBar) AddMenu(menu *Menu) {
 	menu.itemSelectedCallback = func() {
 		b.menusVisible = false
 		menu.SetFocused(false)
+
+		if b.ItemSelectedCallback != nil {
+			b.ItemSelectedCallback()
+		}
 	}
-	b.Menus = append(b.Menus, menu)
+	b.menus = append(b.menus, menu)
 }
 
 // GetMenuXPos returns the X position of the name of Menu at `idx` visually.
 func (b *MenuBar) GetMenuXPos(idx int) int {
 	x := 1
 	for i := 0; i < idx; i++ {
-		x += len(b.Menus[i].Name) + 2 // two for padding
+		x += len(b.menus[i].Name) + 2 // two for padding
 	}
 	return x
 }
 
 func (b *MenuBar) ActivateMenuUnderCursor() {
 	b.menusVisible = true // Show menus
-	menu := &b.Menus[b.selected]
+	menu := &b.menus[b.selected]
 	(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
 	(*menu).SetFocused(true)
 }
 
 func (b *MenuBar) CursorLeft() {
 	if b.menusVisible {	
-		b.Menus[b.selected].SetFocused(false) // Unfocus current menu
+		b.menus[b.selected].SetFocused(false) // Unfocus current menu
 	}
 
 	if b.selected <= 0 {
-		b.selected = len(b.Menus) - 1 // Wrap to end
+		b.selected = len(b.menus) - 1 // Wrap to end
 	} else {
 		b.selected--
 	}
 
 	if b.menusVisible {
 		// Update position of new menu after changing menu selection
-		b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
-		b.Menus[b.selected].SetFocused(true) // Focus new menu
+		b.menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
+		b.menus[b.selected].SetFocused(true) // Focus new menu
 	}
 }
 
 func (b *MenuBar) CursorRight() {
 	if b.menusVisible {
-		b.Menus[b.selected].SetFocused(false)
+		b.menus[b.selected].SetFocused(false)
 	}
 
-	if b.selected >= len(b.Menus)-1 {
+	if b.selected >= len(b.menus)-1 {
 		b.selected = 0 // Wrap to beginning
 	} else {
 		b.selected++
@@ -119,8 +135,8 @@ func (b *MenuBar) CursorRight() {
 
 	if b.menusVisible {
 		// Update position of new menu after changing menu selection
-		b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
-		b.Menus[b.selected].SetFocused(true) // Focus new menu
+		b.menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
+		b.menus[b.selected].SetFocused(true) // Focus new menu
 	}
 }
 
@@ -131,7 +147,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	// Draw menus based on whether b.focused and which is selected
 	DrawRect(s, b.x, b.y, b.width, 1, ' ', normalStyle)
 	col := b.x + 1
-	for i, item := range b.Menus {
+	for i, item := range b.menus {
 		str := fmt.Sprintf(" %s ", item.Name) // Surround the name in spaces
 
 		sty := normalStyle		
@@ -145,7 +161,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	}
 
 	if b.menusVisible {
-		menu := b.Menus[b.selected]
+		menu := b.menus[b.selected]
 		menu.Draw(s) // Draw menu when it is expanded / visible
 	}
 }
@@ -153,7 +169,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 // SetFocused highlights the MenuBar and focuses any sub-menus.
 func (b *MenuBar) SetFocused(v bool) {
 	b.focused = v
-	b.Menus[b.selected].SetFocused(v)
+	b.menus[b.selected].SetFocused(v)
 	if !v {
 		b.selected = 0 // Reset cursor position every time component is unfocused
 		if b.menusVisible {
@@ -200,7 +216,7 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 			if !b.menusVisible { // If menus are not visible...
 				b.ActivateMenuUnderCursor()
 			} else { // The selected Menu is visible, send the event to it
-				return b.Menus[b.selected].HandleEvent(event)				
+				return b.menus[b.selected].HandleEvent(event)				
 			}
 		case tcell.KeyLeft:
 			b.CursorLeft()
@@ -208,14 +224,14 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 			b.CursorRight()
 		case tcell.KeyTab:
 			if b.menusVisible {
-				return b.Menus[b.selected].HandleEvent(event)
+				return b.menus[b.selected].HandleEvent(event)
 			} else {
 				b.CursorRight()
 			}
 
 		case tcell.KeyRune: // Search for the matching quick char in menu names
 			if !b.menusVisible { // If the selected Menu is not open/visible
-				for i, m := range b.Menus {
+				for i, m := range b.menus {
 					found, r := QuickCharInString(m.Name)
 					if found && r == ev.Rune() {
 						b.selected = i // Select menu at i
@@ -224,12 +240,12 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 					}
 				}
 			} else {
-				return b.Menus[b.selected].HandleEvent(event) // Have menu handle quick char event
+				return b.menus[b.selected].HandleEvent(event) // Have menu handle quick char event
 			}
 
 		default:
 			if b.menusVisible {
-				return b.Menus[b.selected].HandleEvent(event)
+				return b.menus[b.selected].HandleEvent(event)
 			} else {
 				return false // Nobody to propogate our event to
 			}

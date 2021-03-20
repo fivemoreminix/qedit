@@ -79,9 +79,15 @@ func main() {
 
 	var fileSelector *ui.FileSelectorDialog // if nil, we don't draw it
 
-	bar := ui.NewMenuBar(&theme)
-
 	barFocused := false
+
+	bar := ui.NewMenuBar(&theme)
+	bar.ItemSelectedCallback = func() {
+		// When something is selected in the MenuBar,
+		// we change focus back to the tab container.
+		changeFocus(tabContainer)
+		barFocused = false
+	}
 
 	fileMenu := ui.NewMenu("_File", &theme)
 
