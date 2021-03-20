@@ -81,6 +81,49 @@ func (b *MenuBar) GetMenuXPos(idx int) int {
 	return x
 }
 
+func (b *MenuBar) ActivateMenuUnderCursor() {
+	b.menusVisible = true // Show menus
+	menu := &b.Menus[b.selected]
+	(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
+	(*menu).SetFocused(true)
+}
+
+func (b *MenuBar) CursorLeft() {
+	if b.menusVisible {	
+		b.Menus[b.selected].SetFocused(false) // Unfocus current menu
+	}
+
+	if b.selected <= 0 {
+		b.selected = len(b.Menus) - 1 // Wrap to end
+	} else {
+		b.selected--
+	}
+
+	if b.menusVisible {
+		// Update position of new menu after changing menu selection
+		b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
+		b.Menus[b.selected].SetFocused(true) // Focus new menu
+	}
+}
+
+func (b *MenuBar) CursorRight() {
+	if b.menusVisible {
+		b.Menus[b.selected].SetFocused(false)
+	}
+
+	if b.selected >= len(b.Menus)-1 {
+		b.selected = 0 // Wrap to beginning
+	} else {
+		b.selected++
+	}
+
+	if b.menusVisible {
+		// Update position of new menu after changing menu selection
+		b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
+		b.Menus[b.selected].SetFocused(true) // Focus new menu
+	}
+}
+
 // Draw renders the MenuBar and its sub-menus.
 func (b *MenuBar) Draw(s tcell.Screen) {
 	normalStyle := b.Theme.GetOrDefault("MenuBar")
@@ -155,46 +198,22 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 		switch ev.Key() {
 		case tcell.KeyEnter:
 			if !b.menusVisible { // If menus are not visible...
-				b.menusVisible = true
-
-				menu := &b.Menus[b.selected]
-				(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
-				(*menu).SetFocused(true) // Makes .Visible true for the Menu
+				b.ActivateMenuUnderCursor()
 			} else { // The selected Menu is visible, send the event to it
 				return b.Menus[b.selected].HandleEvent(event)				
 			}
 		case tcell.KeyLeft:
-			b.Menus[b.selected].SetFocused(false) // Unfocus current menu
-			if b.selected <= 0 {
-				b.selected = len(b.Menus) - 1 // Wrap to end
-			} else {
-				b.selected--
-			}
-			// Update position of new menu after changing menu selection
-			b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
-			b.Menus[b.selected].SetFocused(true) // Focus new menu
+			b.CursorLeft()
 		case tcell.KeyRight:
-			b.Menus[b.selected].SetFocused(false)
-			if b.selected >= len(b.Menus)-1 {
-				b.selected = 0 // Wrap to beginning
-			} else {
-				b.selected++
-			}
-			// Update position of new menu after changing menu selection
-			b.Menus[b.selected].SetPos(b.GetMenuXPos(b.selected), b.y+1)
-			b.Menus[b.selected].SetFocused(true) // Focus new menu
+			b.CursorRight()
 
 		case tcell.KeyRune: // Search for the matching quick char in menu names
 			if !b.menusVisible { // If the selected Menu is not open/visible
 				for i, m := range b.Menus {
 					found, r := QuickCharInString(m.Name)
 					if found && r == ev.Rune() {
-						b.menusVisible = true
-
-						b.selected = i
-						menu := &b.Menus[b.selected]
-						(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
-						(*menu).SetFocused(true)
+						b.selected = i // Select menu at i
+						b.ActivateMenuUnderCursor() // Show menu
 						break
 					}
 				}
