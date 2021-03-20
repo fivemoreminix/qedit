@@ -206,6 +206,12 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 			b.CursorLeft()
 		case tcell.KeyRight:
 			b.CursorRight()
+		case tcell.KeyTab:
+			if b.menusVisible {
+				return b.Menus[b.selected].HandleEvent(event)
+			} else {
+				b.CursorRight()
+			}
 
 		case tcell.KeyRune: // Search for the matching quick char in menu names
 			if !b.menusVisible { // If the selected Menu is not open/visible
@@ -386,6 +392,8 @@ func (m *Menu) HandleEvent(event tcell.Event) bool {
 			m.ActivateItemUnderCursor()
 		case tcell.KeyUp:
 			m.CursorUp()
+		case tcell.KeyTab:
+			fallthrough
 		case tcell.KeyDown:
 			m.CursorDown()
 
