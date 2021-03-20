@@ -104,6 +104,7 @@ func (t *TextEdit) String() string {
 // LF (\n). The TextEdit `IsCRLF` variable is updated with the new value.
 func (t *TextEdit) ChangeLineDelimiters(crlf bool) {
 	t.IsCRLF = crlf
+	t.Dirty = true
 	// line delimiters are constructed with String() function
 }
 
@@ -111,6 +112,8 @@ func (t *TextEdit) ChangeLineDelimiters(crlf bool) {
 // while Delete with `forwards` true will delete the character after (or on) the cursor.
 // In insert mode, forwards is always true.
 func (t *TextEdit) Delete(forwards bool) {
+	t.Dirty = true
+
 	if t.selectMode { // If text is selected, delete the whole selection
 		t.cury, t.curx = t.clampLineCol(t.selection.EndLine, t.selection.EndCol)
 		t.selectMode = false // Disable selection and prevent infinite loop
@@ -172,6 +175,8 @@ func (t *TextEdit) Delete(forwards bool) {
 // Writes `contents` at the cursor position. Line delimiters and tab character supported.
 // Any other control characters will be printed. Overwrites any active selection.
 func (t *TextEdit) Insert(contents string) {
+	t.Dirty = true
+
 	if t.selectMode { // If there is a selection...
 		// Go to and delete the selection
 		t.Delete(true) // The parameter doesn't matter with selection

@@ -135,6 +135,8 @@ func main() {
 				if err != nil {
 					panic("Could not write file at path " + te.FilePath)
 				}
+
+				te.Dirty = false
 			}
 		}
 	}}, &ui.ItemEntry{Name: "Save _As...", Callback: func() {

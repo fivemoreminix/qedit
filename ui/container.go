@@ -192,7 +192,19 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 		} else {
 			sty = c.Theme.GetOrDefault("Tab")
 		}
-		str := fmt.Sprintf(" %s ", tab.Name)
+
+		var dirty bool
+		switch typ := tab.Child.(type) {
+		case *TextEdit:
+			dirty = typ.Dirty
+		}
+
+		name := tab.Name
+		if dirty {
+			name = "*" + name
+		}
+
+		str := fmt.Sprintf(" %s ", name)
 		//DrawStr(s, c.x+c.width/2-len(str)/2, c.y, str, sty)
 		DrawStr(s, c.x+col, c.y, str, sty)
 		col += len(str) + 1 // Add one for spacing between tabs
