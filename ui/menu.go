@@ -6,11 +6,13 @@ import (
 	"unicode"
 
 	"github.com/gdamore/tcell/v2"
+	runewidth "github.com/mattn/go-runewidth"
 )
 
 // Item is an interface implemented by ItemEntry and ItemMenu to be listed in Menus.
 type Item interface {
 	GetName() string
+	GetShortcut() rune
 }
 
 // An ItemSeparator is like a blank Item that cannot actually be selected. It is useful
@@ -20,6 +22,10 @@ type ItemSeparator struct{}
 // GetName returns an empty string.
 func (i *ItemSeparator) GetName() string {
 	return ""
+}
+
+func (i *ItemSeparator) GetShortcut() rune {
+	return 0
 }
 
 // ItemEntry is a listing in a Menu with a name and callback.
@@ -34,9 +40,17 @@ func (i *ItemEntry) GetName() string {
 	return i.Name
 }
 
+func (i *ItemEntry) GetShortcut() rune {
+	return i.Shortcut
+}
+
 // GetName returns the name of the Menu.
 func (m *Menu) GetName() string {
 	return m.Name
+}
+
+func (m *Menu) GetShortcut() rune {
+	return 0
 }
 
 // A MenuBar is a horizontal list of menus.
@@ -358,6 +372,11 @@ func (m *Menu) Draw(s tcell.Screen) {
 
 			str := strings.Repeat(" ", m.width-2-len) // Fill space after menu names to border
 			DrawStr(s, m.x+1+len, m.y+1+i, str, sty)
+
+			if shortcut := item.GetShortcut(); shortcut != 0 { // If the item has a shortcut...
+				str := "  Ctrl+" + string(shortcut) + " "
+				DrawStr(s, m.x+m.width-1-runewidth.StringWidth(str), m.y+1+i, str, sty)
+			}
 		}
 	}
 }
@@ -380,18 +399,33 @@ func (m *Menu) SetPos(x, y int) {
 	m.x, m.y = x, y
 }
 
+func (m *Menu) GetMinSize() (int, int) {
+	return m.GetSize()
+}
+
 // GetSize returns the size of the Menu.
 func (m *Menu) GetSize() (int, int) {
 	// TODO: no, pls don't do this
-	maxLen := 0
-	for _, item := range m.Items {
-		len := len(item.GetName())
-		if len > maxLen {
-			maxLen = len
+	maxNameLen := 0
+	var widestRune int = 0 // Will contribute to the width
+	for i := range m.Items {
+		nameLen := len(m.Items[i].GetName())
+		if nameLen > maxNameLen {
+			maxNameLen = nameLen
+		}
+
+		if s := m.Items[i].GetShortcut(); runewidth.RuneWidth(s) > widestRune {
+			widestRune = runewidth.RuneWidth(s) // For the sake of good unicode
 		}
 	}
-	m.width = maxLen + 2        // Add two for padding
-	m.height = len(m.Items) + 2 // And another two for the same reason ...
+
+	shortcutsWidth := 0
+	if widestRune > 0 {
+		shortcutsWidth = 2 + 5 + widestRune + 1 // "  Ctrl+(rune) "  (with one cell padding surrounding)
+	}
+
+	m.width = 1 + maxNameLen + shortcutsWidth + 1 // Add two for padding
+	m.height = 1 + len(m.Items) + 1           // And another two for the same reason ...
 	return m.width, m.height
 }
 
