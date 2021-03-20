@@ -36,7 +36,6 @@ var DefaultTheme = Theme{
 	"MenuBarSelected":  tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
 	"Menu":             tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
 	"MenuSelected":     tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
-	"QuickChar":        tcell.Style{}.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack),
 	"Tab":              tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
 	"TabContainer":     tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
 	"TabSelected":      tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),

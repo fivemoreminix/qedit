@@ -90,13 +90,14 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	col := b.x + 1
 	for i, item := range b.Menus {
 		str := fmt.Sprintf(" %s ", item.Name) // Surround the name in spaces
-		var sty tcell.Style
-		if b.selected == i && b.focused { // If we are drawing the selected item ...
-			sty = b.Theme.GetOrDefault("MenuBarSelected") // Use style for selected items
-		} else {
-			sty = normalStyle
+
+		sty := normalStyle		
+		if b.focused && b.selected == i {
+			sty = b.Theme.GetOrDefault("MenuBarSelected") // Use special style for selected item
 		}
-		DrawStr(s, col, b.y, str, sty)
+
+		DrawQuickCharStr(s, col, b.y, str, sty)
+
 		col += len(str)
 	}
 
@@ -185,14 +186,16 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 
 		case tcell.KeyRune: // Search for the matching quick char in menu names
 			if !b.menusVisible { // If the selected Menu is not open/visible
-				for _, m := range b.Menus {
+				for i, m := range b.Menus {
 					found, r := QuickCharInString(m.Name)
 					if found && r == ev.Rune() {
 						b.menusVisible = true
 
+						b.selected = i
 						menu := &b.Menus[b.selected]
 						(*menu).SetPos(b.GetMenuXPos(b.selected), b.y+1)
 						(*menu).SetFocused(true)
+						break
 					}
 				}
 			} else {
@@ -306,9 +309,11 @@ func (m *Menu) Draw(s tcell.Screen) {
 			} else {
 				sty = defaultStyle
 			}
-			itemName := item.GetName()
-			str := fmt.Sprintf("%s%s", itemName, strings.Repeat(" ", m.width-2-len(itemName)))
-			DrawStr(s, m.x+1, m.y+1+i, str, sty)
+			
+			len := DrawQuickCharStr(s, m.x+1, m.y+1+i, item.GetName(), sty)
+
+			str := strings.Repeat(" ", m.width-2-len) // Fill space after menu names to border
+			DrawStr(s, m.x+1+len, m.y+1+i, str, sty)
 		}
 	}
 }
@@ -368,10 +373,13 @@ func (m *Menu) HandleEvent(event tcell.Event) bool {
 		case tcell.KeyRune:
 			// TODO: support quick chars for sub-menus
 			for i, item := range m.Items {
+				if m.selected == i {
+					continue // Skip the item we're on
+				}
 				found, r := QuickCharInString(item.GetName())
 				if found && r == ev.Rune() {
 					m.selected = i
-					m.ActivateItemUnderCursor()
+					break
 				}
 			}
 

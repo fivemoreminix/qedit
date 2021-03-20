@@ -15,9 +15,31 @@ func DrawRect(s tcell.Screen, x, y, width, height int, char rune, style tcell.St
 // DrawStr will render each character of a string at `x` and `y`.
 func DrawStr(s tcell.Screen, x, y int, str string, style tcell.Style) {
 	runes := []rune(str)
-	for idx := 0; idx < len(runes); idx++ {
-		s.SetContent(x+idx, y, runes[idx], nil, style)
+	for idx, r := range runes {
+		s.SetContent(x+idx, y, r, nil, style)
 	}
+}
+
+// DrawQuickCharStr renders a string very similar to how DrawStr works, but stylizes the
+// quick char (any rune after an underscore) with an underline. Returned is the number of
+// columns that were drawn to the screen. This is useful to know the length of the string
+// drawn, minus the underscore.
+func DrawQuickCharStr(s tcell.Screen, x, y int, str string, style tcell.Style) int {
+	runes := []rune(str)
+	col := 0
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if r == '_' && i+1 < len(runes) {
+			i++
+			sty := style.Underline(true)
+						
+			s.SetContent(x+col, y, runes[i], nil, sty)
+		} else {
+			s.SetContent(x+col, y, r, nil, style)
+		}
+		col++
+	}
+	return col
 }
 
 // DrawRectOutline draws only the outline of a rectangle, using `ul`, `ur`, `bl`, and `br`

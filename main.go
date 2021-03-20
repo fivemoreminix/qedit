@@ -70,12 +70,12 @@ func main() {
 
 	barFocused := false
 
-	fileMenu := ui.NewMenu("File", &theme)
+	fileMenu := ui.NewMenu("_File", &theme)
 
-	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New File", Callback: func() {
+	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_New File", Callback: func() {
 		textEdit := ui.NewTextEdit(&s, "", "", &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
-	}}, &ui.ItemEntry{Name: "Open...", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Open...", Callback: func() {
 		callback := func(filePaths []string) {
 			for _, path := range filePaths {
 				file, err := os.Open(path)
@@ -109,7 +109,7 @@ func main() {
 			},
 		)
 		changeFocus(fileSelector)
-	}}, &ui.ItemEntry{Name: "Save", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Save", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -124,7 +124,7 @@ func main() {
 				}
 			}
 		}
-	}}, &ui.ItemEntry{Name: "Save As...", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Save _As...", Callback: func() {
 		// TODO: implement a "Save as" dialog system, and show that when trying to save noname files
 		callback := func(filePaths []string) {
 			fileSelector = nil // Hide the file selector
@@ -142,14 +142,14 @@ func main() {
 			},
 		)
 		changeFocus(fileSelector)
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Exit", Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "E_xit", Callback: func() {
 		s.Fini()
 		os.Exit(0)
 	}}})
 
-	editMenu := ui.NewMenu("Edit", &theme)
+	editMenu := ui.NewMenu("_Edit", &theme)
 
-	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Cut", Callback: func() {
+	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Cut", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -160,7 +160,7 @@ func main() {
 				_ = ClipWrite(selectedStr) // Add the selectedStr to clipboard
 			}
 		}
-	}}, &ui.ItemEntry{Name: "Copy", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Copy", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -169,7 +169,7 @@ func main() {
 				_ = ClipWrite(selectedStr) // Add selectedStr to clipboard
 			}
 		}
-	}}, &ui.ItemEntry{Name: "Paste", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Paste", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -182,7 +182,7 @@ func main() {
 		}
 	}}})
 
-	searchMenu := ui.NewMenu("Search", &theme)
+	searchMenu := ui.NewMenu("_Search", &theme)
 
 	searchMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
 		s.Beep()
