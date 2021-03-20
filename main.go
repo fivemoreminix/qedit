@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"io/ioutil"
@@ -47,22 +48,32 @@ func main() {
 		panic(err)
 	}
 
-	// Load files from command-line arguments
+	// Open files from command-line arguments
 	if len(os.Args) > 1 {
-		for _, path := range os.Args[1:] {
-			file, err := os.Open(path)
-			if err != nil {
-				panic("File could not be opened at path " + path)
-			}
-			defer file.Close()
+		for i := 1; i < len(os.Args); i++ {
+			_, err := os.Stat(os.Args[i])
 
-			bytes, err := ioutil.ReadAll(file)
-			if err != nil {
-				panic("Could not read all of " + path)
+			var dirty bool
+			var bytes []byte
+
+			if errors.Is(err, os.ErrNotExist) { // If the file does not exist...
+				dirty = true
+			} else { // If the file exists...
+				file, err := os.Open(os.Args[i])
+				if err != nil {
+					panic("File could not be opened at path " + os.Args[i])
+				}
+				defer file.Close()
+
+				bytes, err = ioutil.ReadAll(file)
+				if err != nil {
+					panic("Could not read all of " + os.Args[i])
+				}
 			}
 
-			textEdit := ui.NewTextEdit(&s, path, string(bytes), &theme)
-			tabContainer.AddTab(path, textEdit)
+			textEdit := ui.NewTextEdit(&s, os.Args[i], string(bytes), &theme)
+			textEdit.Dirty = dirty
+			tabContainer.AddTab(os.Args[i], textEdit)
 		}
 	}
 
