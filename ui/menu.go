@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -10,11 +11,6 @@ import (
 // Item is an interface implemented by ItemEntry and ItemMenu to be listed in Menus.
 type Item interface {
 	GetName() string
-	// GetShortcut returns the shortcut character to activate the Item without opening
-	// the Menu. For example, if the shortcut were 'a', then the user would have to press
-	// `Ctrl + a`. If the shortcut were 'A', then the user would press `Ctrl + Shift + a`.
-	// The zero value means "no shortcut".
-	GetShortcut() rune
 }
 
 // An ItemSeparator is like a blank Item that cannot actually be selected. It is useful
@@ -26,15 +22,11 @@ func (i *ItemSeparator) GetName() string {
 	return ""
 }
 
-func (i *ItemSeparator) GetShortcut() rune {
-	return 0
-}
-
 // ItemEntry is a listing in a Menu with a name and callback.
 type ItemEntry struct {
 	Name     string
-	Callback func()
 	Shortcut rune
+	Callback func()
 }
 
 // GetName returns the name of the ItemEntry.
@@ -42,17 +34,9 @@ func (i *ItemEntry) GetName() string {
 	return i.Name
 }
 
-func (i *ItemEntry) GetShortcut() rune {
-	return i.Shortcut
-}
-
 // GetName returns the name of the Menu.
 func (m *Menu) GetName() string {
 	return m.Name
-}
-
-func (m *Menu) GetShortcut() rune {
-	return 0 // Menus don't have shortcuts
 }
 
 // A MenuBar is a horizontal list of menus.
@@ -211,6 +195,24 @@ func (b *MenuBar) SetSize(width, height int) {
 func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
+		// Shortcuts (Ctrl + s or Ctrl + (Shift) A, for example)
+		if ev.Modifiers() & tcell.ModCtrl != 0 {
+			// tcell calls Ctrl + rune keys "Ctrl-(RUNE)" so we want to remove the "Ctrl-"
+			// prefix, and turn the remaining part of the string into a rune.
+			keyRune := []rune(tcell.KeyNames[ev.Key()][5:])[0]
+
+			keyRune = unicode.ToLower(keyRune) // Make the rune lowercase.
+
+			// Find who the shortcut key belongs to
+			for i := range b.menus {
+				handled := b.menus[i].handleShortcut(keyRune)
+				if handled {
+					return true
+				}
+			}
+			return false // The shortcut key was not handled by any menus
+		}
+
 		switch ev.Key() {
 		case tcell.KeyEnter:
 			if !b.menusVisible { // If menus are not visible...
@@ -229,6 +231,7 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 				b.CursorRight()
 			}
 
+		// Quick char
 		case tcell.KeyRune: // Search for the matching quick char in menu names
 			if !b.menusVisible { // If the selected Menu is not open/visible
 				for i, m := range b.menus {
@@ -241,7 +244,7 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 				}
 			} else {
 				return b.menus[b.selected].HandleEvent(event) // Have menu handle quick char event
-			}
+			}		
 
 		default:
 			if b.menusVisible {
@@ -395,6 +398,24 @@ func (m *Menu) GetSize() (int, int) {
 // SetSize sets the size of the Menu.
 func (m *Menu) SetSize(width, height int) {
 	// Cannot set the size of a Menu
+}
+
+func (m *Menu) handleShortcut(r rune) bool {
+	for i := range m.Items {
+		switch typ := m.Items[i].(type) {
+		case *ItemSeparator:
+			continue
+		case *Menu:
+			return typ.handleShortcut(r) // Have the sub-menu handle the shortcut
+		case *ItemEntry:
+			if typ.Shortcut == r { // If this item matches the shortcut we're finding...
+				m.selected = i
+				m.ActivateItemUnderCursor() // Activate it
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // HandleEvent will handle events for a Menu and may propogate them

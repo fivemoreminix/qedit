@@ -128,7 +128,7 @@ func main() {
 			},
 		)
 		changeFocus(fileSelector)
-	}}, &ui.ItemEntry{Name: "_Save", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Save", Shortcut: 's', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -286,6 +286,13 @@ main_loop:
 				// Ctrl + Q is a shortcut to exit
 				if ev.Key() == tcell.KeyCtrlQ { // TODO: replace with shortcut keys in menus
 					break main_loop
+				}
+
+				if ev.Modifiers() & tcell.ModCtrl != 0 {
+					handled := bar.HandleEvent(ev)
+					if handled {
+						continue // Avoid passing the event to the focusedComponent
+					}
 				}
 			}
 
