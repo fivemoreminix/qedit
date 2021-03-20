@@ -134,8 +134,16 @@ func (c *TabContainer) AddTab(name string, child Component) {
 // false otherwise.
 func (c *TabContainer) RemoveTab(idx int) bool {
 	if idx >= 0 && idx < len(c.children) {
+		if c.selected == idx {
+			c.children[idx].Child.SetFocused(false)
+		}
+
 		copy(c.children[idx:], c.children[idx+1:])  // Shift all items after idx to the left
 		c.children = c.children[:len(c.children)-1] // Shrink slice by one
+
+		if c.selected >= idx && idx > 0 {
+			c.selected-- // Keep the cursor within the bounds of available tabs
+		}
 
 		return true
 	}
@@ -219,7 +227,7 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 // SetFocused calls SetFocused on the visible child Component.
 func (c *TabContainer) SetFocused(v bool) {
 	c.focused = v
-	if c.selected < len(c.children) {
+	if len(c.children) > 0 {
 		c.children[c.selected].Child.SetFocused(v)
 	}
 }

@@ -209,8 +209,8 @@ func (b *MenuBar) SetSize(width, height int) {
 func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
-		// Shortcuts (Ctrl + s or Ctrl + (Shift) A, for example)
-		if ev.Modifiers() & tcell.ModCtrl != 0 {
+		// Shortcuts (Ctrl-s or Ctrl-A, for example)
+		if ev.Modifiers() & tcell.ModCtrl != 0 && strings.HasPrefix(tcell.KeyNames[ev.Key()], "Ctrl-") {
 			// tcell calls Ctrl + rune keys "Ctrl-(RUNE)" so we want to remove the "Ctrl-"
 			// prefix, and turn the remaining part of the string into a rune.
 			keyRune := []rune(tcell.KeyNames[ev.Key()][5:])[0]

@@ -91,10 +91,10 @@ func main() {
 
 	fileMenu := ui.NewMenu("_File", &theme)
 
-	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_New File", Callback: func() {
+	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_New File", Shortcut: 'n', Callback: func() {
 		textEdit := ui.NewTextEdit(&s, "", "", &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
-	}}, &ui.ItemEntry{Name: "_Open...", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Open...", Shortcut: 'o', Callback: func() {
 		callback := func(filePaths []string) {
 			for _, path := range filePaths {
 				file, err := os.Open(path)
@@ -163,14 +163,18 @@ func main() {
 			},
 		)
 		changeFocus(fileSelector)
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "E_xit", Callback: func() {
-		s.Fini()
-		os.Exit(0)
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Close", Shortcut: 'q', Callback: func() {
+		if tabContainer.GetTabCount() > 0 {
+			tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
+		} else { // No tabs open; close the editor
+			s.Fini()
+			os.Exit(0)
+		}
 	}}})
 
 	editMenu := ui.NewMenu("_Edit", &theme)
 
-	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Cut", Callback: func() {
+	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Cut", Shortcut: 'x', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -181,7 +185,7 @@ func main() {
 				_ = ClipWrite(selectedStr) // Add the selectedStr to clipboard
 			}
 		}
-	}}, &ui.ItemEntry{Name: "_Copy", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Copy", Shortcut: 'c', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -190,7 +194,7 @@ func main() {
 				_ = ClipWrite(selectedStr) // Add selectedStr to clipboard
 			}
 		}
-	}}, &ui.ItemEntry{Name: "_Paste", Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Paste", Shortcut: 'p', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -215,7 +219,6 @@ func main() {
 
 	changeFocus(tabContainer) // TabContainer is focused by default
 
-main_loop:
 	for {
 		s.Clear()
 
@@ -282,10 +285,6 @@ main_loop:
 					} else {
 						changeFocus(tabContainer)
 					}
-				}
-				// Ctrl + Q is a shortcut to exit
-				if ev.Key() == tcell.KeyCtrlQ { // TODO: replace with shortcut keys in menus
-					break main_loop
 				}
 
 				if ev.Modifiers() & tcell.ModCtrl != 0 {
