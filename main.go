@@ -10,7 +10,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-var theme = ui.Theme{}
+var theme = ui.Theme{
+	"StatusBar": tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
+}
 
 var focusedComponent ui.Component = nil
 
@@ -38,7 +40,7 @@ func main() {
 
 	tabContainer := ui.NewTabContainer(&theme)
 	tabContainer.SetPos(0, 1)
-	tabContainer.SetSize(sizex, sizey-1)
+	tabContainer.SetSize(sizex, sizey-2)
 
 	_, err := ClipInitialize(ClipExternal)
 	if err != nil {
@@ -215,6 +217,32 @@ main_loop:
 			fileSelector.Draw(s)
 		}
 
+		// Draw statusbar
+		ui.DrawRect(s, 0, sizey-1, sizex, 1, ' ', theme["StatusBar"])
+		if tabContainer.GetTabCount() > 0 {
+			focusedTab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
+			te := focusedTab.Child.(*ui.TextEdit)
+
+			var delim string
+			if te.IsCRLF {
+				delim = "CRLF"
+			} else {
+				delim = "LF"
+			}
+
+			line, col := te.GetLineCol()
+
+			var tabs string
+			if te.UseHardTabs {
+				tabs = "Tabs: Hard"
+			} else {
+				tabs = "Tabs: Spaces"
+			}
+
+			str := fmt.Sprintf(" Filetype: %s  %d, %d  %s  %s", "None", line+1, col+1, delim, tabs)
+			ui.DrawStr(s, 0, sizey-1, str, theme["StatusBar"])
+		}
+
 		s.Show()
 
 		switch ev := s.PollEvent().(type) {
@@ -222,7 +250,7 @@ main_loop:
 			sizex, sizey = s.Size()
 
 			bar.SetSize(sizex, 1)
-			tabContainer.SetSize(sizex, sizey-1)
+			tabContainer.SetSize(sizex, sizey-2)
 
 			s.Sync() // Redraw everything
 		case *tcell.EventKey:

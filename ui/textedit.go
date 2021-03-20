@@ -241,11 +241,6 @@ func (t *TextEdit) insertNewLine() {
 	t.prevCurCol = t.curx
 }
 
-// GetLineCol returns (line, col) of the cursor. Zero is origin for both.
-func (t *TextEdit) GetLineCol() (int, int) {
-	return t.cury, t.curx
-}
-
 // getTabCountInLineAtCol returns tabs in the given line, at or before that column position,
 // if hard tabs are enabled. If hard tabs are not enabled, the function returns zero.
 // Multiply returned tab count by TabSize to get the offset produced by tabs.
@@ -278,6 +273,11 @@ func (t *TextEdit) clampLineCol(line, col int) (int, int) {
 	}
 
 	return line, col
+}
+
+// GetLineCol returns (line, col) of the cursor. Zero is origin for both.
+func (t *TextEdit) GetLineCol() (int, int) {
+	return t.cury, t.curx
 }
 
 // SetLineCol sets the cursor line and column position. Zero is origin for both.
