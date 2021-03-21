@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 	runewidth "github.com/mattn/go-runewidth"
@@ -12,7 +11,11 @@ import (
 // Item is an interface implemented by ItemEntry and ItemMenu to be listed in Menus.
 type Item interface {
 	GetName() string
-	GetShortcut() rune
+	// A Shortcut is a string of the modifiers+key name of the action that must be pressed
+	// to trigger the shortcut. For example: "Ctrl+Alt+X". The order of the modifiers is
+	// very important. Letters are case-sensitive. See the KeyEvent.Name() function of tcell
+	// for information. An empty string implies no shortcut.
+	GetShortcut() string
 }
 
 // An ItemSeparator is like a blank Item that cannot actually be selected. It is useful
@@ -24,14 +27,14 @@ func (i *ItemSeparator) GetName() string {
 	return ""
 }
 
-func (i *ItemSeparator) GetShortcut() rune {
-	return 0
+func (i *ItemSeparator) GetShortcut() string {
+	return ""
 }
 
 // ItemEntry is a listing in a Menu with a name and callback.
 type ItemEntry struct {
 	Name     string
-	Shortcut rune
+	Shortcut string
 	Callback func()
 }
 
@@ -40,7 +43,7 @@ func (i *ItemEntry) GetName() string {
 	return i.Name
 }
 
-func (i *ItemEntry) GetShortcut() rune {
+func (i *ItemEntry) GetShortcut() string {
 	return i.Shortcut
 }
 
@@ -49,8 +52,8 @@ func (m *Menu) GetName() string {
 	return m.Name
 }
 
-func (m *Menu) GetShortcut() rune {
-	return 0
+func (m *Menu) GetShortcut() string {
+	return ""
 }
 
 // A MenuBar is a horizontal list of menus.
@@ -204,16 +207,15 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
 		// Shortcuts (Ctrl-s or Ctrl-A, for example)
-		if ev.Modifiers() & tcell.ModCtrl != 0 && strings.HasPrefix(tcell.KeyNames[ev.Key()], "Ctrl-") {
-			// tcell calls Ctrl + rune keys "Ctrl-(RUNE)" so we want to remove the "Ctrl-"
-			// prefix, and turn the remaining part of the string into a rune.
-			keyRune := []rune(tcell.KeyNames[ev.Key()][5:])[0]
+		if ev.Modifiers() != 0 { // If there is a modifier on the key...
+			// tcell names it "Ctrl+(Key)" so we want to remove the "Ctrl+"
+			// prefix, and use the remaining part of the string as the shortcut.
 
-			keyRune = unicode.ToLower(keyRune) // Make the rune lowercase.
+			keyName := ev.Name()
 
 			// Find who the shortcut key belongs to
 			for i := range b.menus {
-				handled := b.menus[i].handleShortcut(keyRune)
+				handled := b.menus[i].handleShortcut(keyName)
 				if handled {
 					return true
 				}
@@ -362,13 +364,13 @@ func (m *Menu) Draw(s tcell.Screen) {
 				sty = defaultStyle
 			}
 			
-			len := DrawQuickCharStr(s, m.x+1, m.y+1+i, item.GetName(), sty)
+			nameLen := DrawQuickCharStr(s, m.x+1, m.y+1+i, item.GetName(), sty)
 
-			str := strings.Repeat(" ", m.width-2-len) // Fill space after menu names to border
-			DrawStr(s, m.x+1+len, m.y+1+i, str, sty)
+			str := strings.Repeat(" ", m.width-2-nameLen) // Fill space after menu names to border
+			DrawStr(s, m.x+1+nameLen, m.y+1+i, str, sty)
 
-			if shortcut := item.GetShortcut(); shortcut != 0 { // If the item has a shortcut...
-				str := "  Ctrl+" + string(shortcut) + " "
+			if shortcut := item.GetShortcut(); len(shortcut) > 0 { // If the item has a shortcut...
+				str := " " + shortcut + " "
 				DrawStr(s, m.x+m.width-1-runewidth.StringWidth(str), m.y+1+i, str, sty)
 			}
 		}
@@ -401,21 +403,21 @@ func (m *Menu) GetMinSize() (int, int) {
 func (m *Menu) GetSize() (int, int) {
 	// TODO: no, pls don't do this
 	maxNameLen := 0
-	var widestRune int = 0 // Will contribute to the width
+	var widestShortcut int = 0 // Will contribute to the width
 	for i := range m.Items {
 		nameLen := len(m.Items[i].GetName())
 		if nameLen > maxNameLen {
 			maxNameLen = nameLen
 		}
 
-		if s := m.Items[i].GetShortcut(); runewidth.RuneWidth(s) > widestRune {
-			widestRune = runewidth.RuneWidth(s) // For the sake of good unicode
+		if key := m.Items[i].GetShortcut(); runewidth.StringWidth(key) > widestShortcut {
+			widestShortcut = runewidth.StringWidth(key) // For the sake of good unicode
 		}
 	}
 
 	shortcutsWidth := 0
-	if widestRune > 0 {
-		shortcutsWidth = 2 + 5 + widestRune + 1 // "  Ctrl+(rune) "  (with one cell padding surrounding)
+	if widestShortcut > 0 {
+		shortcutsWidth = 1 + widestShortcut + 1 // " Ctrl+X "  (with one cell padding surrounding)
 	}
 
 	m.width = 1 + maxNameLen + shortcutsWidth + 1 // Add two for padding
@@ -428,15 +430,15 @@ func (m *Menu) SetSize(width, height int) {
 	// Cannot set the size of a Menu
 }
 
-func (m *Menu) handleShortcut(r rune) bool {
+func (m *Menu) handleShortcut(key string) bool {
 	for i := range m.Items {
 		switch typ := m.Items[i].(type) {
 		case *ItemSeparator:
 			continue
 		case *Menu:
-			return typ.handleShortcut(r) // Have the sub-menu handle the shortcut
+			return typ.handleShortcut(key) // Have the sub-menu handle the shortcut
 		case *ItemEntry:
-			if typ.Shortcut == r { // If this item matches the shortcut we're finding...
+			if typ.Shortcut == key { // If this item matches the shortcut we're finding...
 				m.selected = i
 				m.ActivateItemUnderCursor() // Activate it
 				return true

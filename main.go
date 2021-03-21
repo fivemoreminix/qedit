@@ -87,10 +87,10 @@ func main() {
 
 	fileMenu := ui.NewMenu("_File", &theme)
 
-	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_New File", Shortcut: 'n', Callback: func() {
+	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_New File", Shortcut: "Ctrl+N", Callback: func() {
 		textEdit := ui.NewTextEdit(&s, "", "", &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
-	}}, &ui.ItemEntry{Name: "_Open...", Shortcut: 'o', Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Open...", Shortcut: "Ctrl+O", Callback: func() {
 		callback := func(filePaths []string) {
 			for _, path := range filePaths {
 				file, err := os.Open(path)
@@ -124,7 +124,7 @@ func main() {
 			},
 		)
 		changeFocus(dialog)
-	}}, &ui.ItemEntry{Name: "_Save", Shortcut: 's', Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Save", Shortcut: "Ctrl+S", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -161,7 +161,7 @@ func main() {
 			},
 		)
 		changeFocus(dialog)
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Close", Shortcut: 'q', Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Close", Shortcut: "Ctrl+Q", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
 		} else { // No tabs open; close the editor
@@ -172,21 +172,25 @@ func main() {
 
 	panelMenu := ui.NewMenu("_Panel", &theme)
 
-	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Up", Callback: func() {
+	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Up", Shortcut: "Alt+Up", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "_Down", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Focus Down", Shortcut: "Alt+Down", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "_Left", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Focus Left", Shortcut: "Alt+Left", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "_Right", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Focus Right", Shortcut: "Alt+Right", Callback: func() {
 
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split _Left", Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split _Top", Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "Split _Bottom", Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "Split _Left", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Split _Right", Callback: func() {
 
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Move", Shortcut: 'm', Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Move", Shortcut: "Ctrl+M", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "_Resize", Shortcut: 'r', Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Resize", Shortcut: "Ctrl+R", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "_Float", Callback: func() {
 
@@ -194,7 +198,7 @@ func main() {
 
 	editMenu := ui.NewMenu("_Edit", &theme)
 
-	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Cut", Shortcut: 'x', Callback: func() {
+	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Cut", Shortcut: "Ctrl+X", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -206,7 +210,7 @@ func main() {
 			}
 			changeFocus(tabContainer)
 		}
-	}}, &ui.ItemEntry{Name: "_Copy", Shortcut: 'c', Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Copy", Shortcut: "Ctrl+C", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -216,7 +220,7 @@ func main() {
 			}
 			changeFocus(tabContainer)
 		}
-	}}, &ui.ItemEntry{Name: "_Paste", Shortcut: 'v', Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Paste", Shortcut: "Ctrl+V", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -229,7 +233,7 @@ func main() {
 
 			changeFocus(tabContainer)
 		}
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Select _All", Shortcut: 'a', Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Select _All", Shortcut: "Ctrl+A", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Select _Line", Callback: func() {
 
