@@ -15,7 +15,13 @@ var theme = ui.Theme{
 	"StatusBar": tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
 }
 
-var focusedComponent ui.Component = nil
+var (
+	menuBar      *ui.MenuBar
+	tabContainer *ui.TabContainer
+	dialog       ui.Component // nil if not present (has exclusive focus)
+
+	focusedComponent ui.Component = nil
+)
 
 func changeFocus(to ui.Component) {
 	if focusedComponent != nil {
@@ -39,7 +45,7 @@ func main() {
 
 	sizex, sizey := s.Size()
 
-	tabContainer := ui.NewTabContainer(&theme)
+	tabContainer = ui.NewTabContainer(&theme)
 	tabContainer.SetPos(0, 1)
 	tabContainer.SetSize(sizex, sizey-2)
 
@@ -77,17 +83,9 @@ func main() {
 		}
 	}
 
-	var fileSelector *ui.FileSelectorDialog // if nil, we don't draw it
-
 	barFocused := false
 
-	bar := ui.NewMenuBar(&theme)
-	bar.ItemSelectedCallback = func() {
-		// When something is selected in the MenuBar,
-		// we change focus back to the tab container.
-		changeFocus(tabContainer)
-		barFocused = false
-	}
+	menuBar = ui.NewMenuBar(&theme)
 
 	fileMenu := ui.NewMenu("_File", &theme)
 
@@ -111,23 +109,25 @@ func main() {
 				textEdit := ui.NewTextEdit(&s, path, string(bytes), &theme)
 				tabContainer.AddTab(path, textEdit)
 			}
-			fileSelector = nil // Hide the file selector
+			// TODO: free the dialog instead?
+			dialog = nil // Hide the file selector
+
 			changeFocus(tabContainer)
 			barFocused = false
 		}
-		fileSelector = ui.NewFileSelectorDialog(
+		dialog = ui.NewFileSelectorDialog(
 			&s,
 			"Comma-separated files or a directory",
 			true,
 			&theme,
 			callback,
 			func() { // Dialog is canceled
-				fileSelector = nil
-				changeFocus(bar)
-				barFocused = true
+				dialog = nil
+				changeFocus(tabContainer)
+				barFocused = false
 			},
 		)
-		changeFocus(fileSelector)
+		changeFocus(dialog)
 	}}, &ui.ItemEntry{Name: "_Save", Shortcut: 's', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
@@ -144,25 +144,30 @@ func main() {
 
 				te.Dirty = false
 			}
+			changeFocus(tabContainer)
+			barFocused = false
 		}
 	}}, &ui.ItemEntry{Name: "Save _As...", Callback: func() {
 		// TODO: implement a "Save as" dialog system, and show that when trying to save noname files
 		callback := func(filePaths []string) {
-			fileSelector = nil // Hide the file selector
+			dialog = nil // Hide the file selector
+			changeFocus(tabContainer)
+			barFocused = false
 		}
 
-		fileSelector = ui.NewFileSelectorDialog(
+		dialog = ui.NewFileSelectorDialog(
 			&s,
 			"Select a file to overwrite",
 			false,
 			&theme,
 			callback,
 			func() { // Dialog canceled
-				fileSelector = nil
-				changeFocus(bar)
+				dialog = nil
+				changeFocus(tabContainer)
+				barFocused = false
 			},
 		)
-		changeFocus(fileSelector)
+		changeFocus(dialog)
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Close", Shortcut: 'q', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
@@ -170,6 +175,28 @@ func main() {
 			s.Fini()
 			os.Exit(0)
 		}
+	}}})
+
+	panelMenu := ui.NewMenu("_Panel", &theme)
+
+	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Up", Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "_Down", Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "_Left", Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "_Right", Callback: func() {
+
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split _Left", Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "Split _Right", Callback: func() {
+
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Move", Shortcut: 'm', Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "_Resize", Shortcut: 'r', Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "_Float", Callback: func() {
+
 	}}})
 
 	editMenu := ui.NewMenu("_Edit", &theme)
@@ -184,6 +211,8 @@ func main() {
 				// TODO: better error handling within editor
 				_ = ClipWrite(selectedStr) // Add the selectedStr to clipboard
 			}
+			changeFocus(tabContainer)
+			barFocused = false
 		}
 	}}, &ui.ItemEntry{Name: "_Copy", Shortcut: 'c', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
@@ -193,8 +222,10 @@ func main() {
 			if selectedStr != "" { // If there is something selected...
 				_ = ClipWrite(selectedStr) // Add selectedStr to clipboard
 			}
+			changeFocus(tabContainer)
+			barFocused = false
 		}
-	}}, &ui.ItemEntry{Name: "_Paste", Shortcut: 'p', Callback: func() {
+	}}, &ui.ItemEntry{Name: "_Paste", Shortcut: 'v', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -204,7 +235,14 @@ func main() {
 				panic(err)
 			}
 			te.Insert(contents)
+
+			changeFocus(tabContainer)
+			barFocused = false
 		}
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Select _All", Shortcut: 'a', Callback: func() {
+
+	}}, &ui.ItemEntry{Name: "Select _Line", Callback: func() {
+
 	}}})
 
 	searchMenu := ui.NewMenu("_Search", &theme)
@@ -213,9 +251,10 @@ func main() {
 		s.Beep()
 	}}})
 
-	bar.AddMenu(fileMenu)
-	bar.AddMenu(editMenu)
-	bar.AddMenu(searchMenu)
+	menuBar.AddMenu(fileMenu)
+	menuBar.AddMenu(panelMenu)
+	menuBar.AddMenu(editMenu)
+	menuBar.AddMenu(searchMenu)
 
 	changeFocus(tabContainer) // TabContainer is focused by default
 
@@ -228,15 +267,15 @@ func main() {
 		if tabContainer.GetTabCount() > 0 { // Draw the tab container only if a tab is open
 			tabContainer.Draw(s)
 		}
-		bar.Draw(s) // Always draw the menu bar
+		menuBar.Draw(s) // Always draw the menu bar
 
-		if fileSelector != nil {
+		if dialog != nil {
 			// Update fileSelector dialog pos and size
-			diagMinX, diagMinY := fileSelector.GetMinSize()
-			fileSelector.SetSize(diagMinX, diagMinY)
-			fileSelector.SetPos(sizex/2-diagMinX/2, sizey/2-diagMinY/2) // Center
+			diagMinX, diagMinY := dialog.GetMinSize()
+			dialog.SetSize(diagMinX, diagMinY)
+			dialog.SetPos(sizex/2-diagMinX/2, sizey/2-diagMinY/2) // Center
 
-			fileSelector.Draw(s)
+			dialog.Draw(s)
 		}
 
 		// Draw statusbar
@@ -271,24 +310,24 @@ func main() {
 		case *tcell.EventResize:
 			sizex, sizey = s.Size()
 
-			bar.SetSize(sizex, 1)
+			menuBar.SetSize(sizex, 1)
 			tabContainer.SetSize(sizex, sizey-2)
 
 			s.Sync() // Redraw everything
 		case *tcell.EventKey:
 			// On Escape, we change focus between editor and the MenuBar.
-			if fileSelector == nil { // While no dialog is present...
+			if dialog == nil { // While no dialog is present...
 				if ev.Key() == tcell.KeyEscape {
 					barFocused = !barFocused
 					if barFocused {
-						changeFocus(bar)
+						changeFocus(menuBar)
 					} else {
 						changeFocus(tabContainer)
 					}
 				}
 
 				if ev.Modifiers() & tcell.ModCtrl != 0 {
-					handled := bar.HandleEvent(ev)
+					handled := menuBar.HandleEvent(ev)
 					if handled {
 						continue // Avoid passing the event to the focusedComponent
 					}

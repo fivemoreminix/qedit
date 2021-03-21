@@ -55,8 +55,6 @@ func (m *Menu) GetShortcut() rune {
 
 // A MenuBar is a horizontal list of menus.
 type MenuBar struct {
-	ItemSelectedCallback func()
-
 	menus         []*Menu
 	x, y          int
 	width, height int
@@ -78,10 +76,6 @@ func (b *MenuBar) AddMenu(menu *Menu) {
 	menu.itemSelectedCallback = func() {
 		b.menusVisible = false
 		menu.SetFocused(false)
-
-		if b.ItemSelectedCallback != nil {
-			b.ItemSelectedCallback()
-		}
 	}
 	b.menus = append(b.menus, menu)
 }
