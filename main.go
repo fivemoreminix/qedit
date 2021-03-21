@@ -83,8 +83,6 @@ func main() {
 		}
 	}
 
-	barFocused := false
-
 	menuBar = ui.NewMenuBar(&theme)
 
 	fileMenu := ui.NewMenu("_File", &theme)
@@ -113,7 +111,6 @@ func main() {
 			dialog = nil // Hide the file selector
 
 			changeFocus(tabContainer)
-			barFocused = false
 		}
 		dialog = ui.NewFileSelectorDialog(
 			&s,
@@ -124,7 +121,6 @@ func main() {
 			func() { // Dialog is canceled
 				dialog = nil
 				changeFocus(tabContainer)
-				barFocused = false
 			},
 		)
 		changeFocus(dialog)
@@ -145,14 +141,12 @@ func main() {
 				te.Dirty = false
 			}
 			changeFocus(tabContainer)
-			barFocused = false
 		}
 	}}, &ui.ItemEntry{Name: "Save _As...", Callback: func() {
 		// TODO: implement a "Save as" dialog system, and show that when trying to save noname files
 		callback := func(filePaths []string) {
 			dialog = nil // Hide the file selector
 			changeFocus(tabContainer)
-			barFocused = false
 		}
 
 		dialog = ui.NewFileSelectorDialog(
@@ -164,7 +158,6 @@ func main() {
 			func() { // Dialog canceled
 				dialog = nil
 				changeFocus(tabContainer)
-				barFocused = false
 			},
 		)
 		changeFocus(dialog)
@@ -212,7 +205,6 @@ func main() {
 				_ = ClipWrite(selectedStr) // Add the selectedStr to clipboard
 			}
 			changeFocus(tabContainer)
-			barFocused = false
 		}
 	}}, &ui.ItemEntry{Name: "_Copy", Shortcut: 'c', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
@@ -223,7 +215,6 @@ func main() {
 				_ = ClipWrite(selectedStr) // Add selectedStr to clipboard
 			}
 			changeFocus(tabContainer)
-			barFocused = false
 		}
 	}}, &ui.ItemEntry{Name: "_Paste", Shortcut: 'v', Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
@@ -237,7 +228,6 @@ func main() {
 			te.Insert(contents)
 
 			changeFocus(tabContainer)
-			barFocused = false
 		}
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Select _All", Shortcut: 'a', Callback: func() {
 
@@ -318,8 +308,7 @@ func main() {
 			// On Escape, we change focus between editor and the MenuBar.
 			if dialog == nil { // While no dialog is present...
 				if ev.Key() == tcell.KeyEscape {
-					barFocused = !barFocused
-					if barFocused {
+					if focusedComponent == tabContainer {
 						changeFocus(menuBar)
 					} else {
 						changeFocus(tabContainer)
