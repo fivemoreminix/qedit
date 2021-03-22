@@ -5,7 +5,9 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
+	"github.com/fivemoreminix/diesel/ui/buffer"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -24,6 +26,7 @@ type Region struct {
 // tools, is autocomplete ready, and contains the various information about
 // content being edited.
 type TextEdit struct {
+	Buffer      buffer.Buffer
 	LineNumbers bool   // Whether to render line numbers (and therefore the column)
 	Dirty       bool   // Whether the buffer has been edited
 	UseHardTabs bool   // When true, tabs are '\t'
@@ -31,7 +34,6 @@ type TextEdit struct {
 	IsCRLF      bool   // Whether the file's line endings are CRLF (\r\n) or LF (\n)
 	FilePath    string // Will be empty if the file has not been saved yet
 
-	buffer           []string      // TODO: replace line-based buffer with gap buffer
 	screen           *tcell.Screen // We keep our own reference to the screen for cursor purposes.
 	x, y             int
 	width, height    int
@@ -50,11 +52,11 @@ type TextEdit struct {
 // it can be assumed that the TextEdit has no file association, or it is unsaved.
 func NewTextEdit(screen *tcell.Screen, filePath, contents string, theme *Theme) *TextEdit {
 	te := &TextEdit{
+		Buffer:      nil,
 		LineNumbers: true,
 		UseHardTabs: true,
 		TabSize:     4,
 		FilePath:    filePath,
-		buffer:      nil,
 		screen:      screen,
 		Theme:       theme,
 	}
@@ -65,8 +67,9 @@ func NewTextEdit(screen *tcell.Screen, filePath, contents string, theme *Theme) 
 // SetContents applies the string to the internal buffer of the TextEdit component.
 // The string is determined to be either CRLF or LF based on line-endings.
 func (t *TextEdit) SetContents(contents string) {
+	var i int
 loop:
-	for _, r := range contents {
+	for i < len(contents) {
 		switch r {
 		case '\n':
 			t.IsCRLF = false
@@ -76,14 +79,10 @@ loop:
 			t.IsCRLF = true
 			break loop
 		}
+		i += utf8.DecodeRune(contents[i:])
 	}
 
-	delimiter := "\n"
-	if t.IsCRLF {
-		delimiter = "\r\n"
-	}
-
-	t.buffer = strings.Split(contents, delimiter) // Split contents into lines
+	t.Buffer = buffer.NewRopeBuffer(contents)
 }
 
 // GetLineDelimiter returns "\r\n" for a CRLF buffer, or "\n" for an LF buffer.
@@ -232,6 +231,8 @@ func (t *TextEdit) Insert(contents string) {
 // column of that new line. Text before the cursor on the current line remains on that line,
 // text at or after the cursor on the current line is moved to the new line.
 func (t *TextEdit) insertNewLine() {
+	t.Dirty = true
+
 	lineRunes := []rune(t.buffer[t.cury]) // A slice of runes of the old line
 	movedRunes := lineRunes[t.curx:]      // A slice of the old line containing runes to be moved
 	newLineRunes := make([]rune, len(movedRunes))
