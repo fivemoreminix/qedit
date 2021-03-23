@@ -77,7 +77,7 @@ func main() {
 				}
 			}
 
-			textEdit := ui.NewTextEdit(&s, os.Args[i], string(bytes), &theme)
+			textEdit := ui.NewTextEdit(&s, os.Args[i], bytes, &theme)
 			textEdit.Dirty = dirty
 			tabContainer.AddTab(os.Args[i], textEdit)
 		}
@@ -88,7 +88,7 @@ func main() {
 	fileMenu := ui.NewMenu("_File", &theme)
 
 	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_New File", Shortcut: "Ctrl+N", Callback: func() {
-		textEdit := ui.NewTextEdit(&s, "", "", &theme) // No file path, no contents
+		textEdit := ui.NewTextEdit(&s, "", []byte{}, &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
 	}}, &ui.ItemEntry{Name: "_Open...", Shortcut: "Ctrl+O", Callback: func() {
 		callback := func(filePaths []string) {
@@ -104,7 +104,7 @@ func main() {
 					panic("Could not read all of file")
 				}
 
-				textEdit := ui.NewTextEdit(&s, path, string(bytes), &theme)
+				textEdit := ui.NewTextEdit(&s, path, bytes, &theme)
 				tabContainer.AddTab(path, textEdit)
 			}
 			// TODO: free the dialog instead?
@@ -129,14 +129,12 @@ func main() {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
 			if len(te.FilePath) > 0 {
-				contents := te.String()
-
 				// Write the contents into the file, creating one if it does
 				// not exist.
-				err := ioutil.WriteFile(te.FilePath, []byte(contents), fs.ModePerm)
+				err := ioutil.WriteFile(te.FilePath, te.Buffer.Bytes(), fs.ModePerm)
 				if err != nil {
 					panic("Could not write file at path " + te.FilePath)
-				}
+				} // TODO: Replace with io.Writer method
 
 				te.Dirty = false
 			}
@@ -202,11 +200,11 @@ func main() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
-			selectedStr := te.GetSelectedString()
-			if selectedStr != "" { // If something is selected...
+			bytes := te.GetSelectedBytes()
+			if len(bytes) > 0 { // If something is selected...
 				te.Delete(false) // Delete the selection
 				// TODO: better error handling within editor
-				_ = ClipWrite(selectedStr) // Add the selectedStr to clipboard
+				_ = ClipWrite(string(bytes)) // Add the selectedStr to clipboard
 			}
 			changeFocus(tabContainer)
 		}
@@ -214,9 +212,9 @@ func main() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
-			selectedStr := te.GetSelectedString()
-			if selectedStr != "" { // If there is something selected...
-				_ = ClipWrite(selectedStr) // Add selectedStr to clipboard
+			bytes := te.GetSelectedBytes()
+			if len(bytes) > 0 { // If there is something selected...
+				_ = ClipWrite(string(bytes)) // Add selectedStr to clipboard
 			}
 			changeFocus(tabContainer)
 		}

@@ -63,13 +63,22 @@ func (b *RopeBuffer) Line(line int) []byte {
 	_, r := _rope.SplitAt(pos)
 	l, _ := r.SplitAt(_rope.Len() - pos)
 
+	var isCRLF bool // true if the last byte was '\r'
 	l.EachLeaf(func(n *rope.Node) bool {
 		data := n.Value() // Reference; not a copy.
 		var i int
 		for i < len(data) {
-			if data[i] == '\n' {
-				bytes++ // Add the newline byte
+			if data[i] == '\r' {
+				isCRLF = true
+			} else if data[i] == '\n' {
+				if isCRLF {
+					bytes += 2 // Add the CRLF bytes
+				} else {
+					bytes += 1 // Add LF byte
+				}
 				return true // Read (past-tense) the whole line
+			} else {
+				isCRLF = false
 			}
 
 			// Respect Utf-8 codepoint boundaries
@@ -108,6 +117,14 @@ func (b *RopeBuffer) Remove(startLine, startCol, endLine, endCol int) {
 	(*rope.Node)(b).Remove(b.pos(startLine, startCol), b.pos(endLine, endCol)+1)
 }
 
+// Returns the number of occurrences of 'sequence' in the buffer, within the range
+// of start line and col, to end line and col. End is exclusive.
+func (b *RopeBuffer) Count(startLine, startCol, endLine, endCol int, sequence []byte) int {
+	startPos := b.pos(startLine, startCol)
+	endPos := b.pos(endLine, endCol)
+	return (*rope.Node)(b).Count(startPos, endPos, sequence)
+}
+
 // Len returns the number of bytes in the buffer.
 func (b *RopeBuffer) Len() int {
 	return (*rope.Node)(b).Len()
@@ -119,41 +136,6 @@ func (b *RopeBuffer) Len() int {
 func (b *RopeBuffer) Lines() int {
 	rope := (*rope.Node)(b)
 	return rope.Count(0, rope.Len(), []byte{'\n'}) + 1
-}
-
-// pos is the first byte index in the line we want to count runes/cols. pos can point to
-// a newline or be greater than or equal to the number of bytes in the buffer, and will
-// return 0 for both cases.
-func (b *RopeBuffer) runesInLine(pos int) int {
-	_rope := (*rope.Node)(b)
-	ropeLen := _rope.Len()
-
-	if pos >= ropeLen {
-		return 0
-	}
-
-	var count int
-
-	_, r := _rope.SplitAt(pos)
-	l, _ := r.SplitAt(ropeLen - pos)
-
-	l.EachLeaf(func(n *rope.Node) bool {
-		data := n.Value() // Reference; not a copy.
-		var i int
-		for i < len(data) {
-			if data[i] == '\n' {
-				return true // Read (past-tense) the whole line
-			}
-			count++
-
-			// Respect Utf-8 codepoint boundaries
-			_, size := utf8.DecodeRune(data[i:])
-			i += size
-		}
-		return false // Have not read the whole line, yet
-	})
-
-	return count
 }
 
 // getLineStartPos returns the first byte index of the given line (starting from zero).
@@ -182,16 +164,99 @@ func (b *RopeBuffer) getLineStartPos(line int) int {
 	return pos
 }
 
+// RunesInLineWithDelim returns the number of runes in the given line. That is, the
+// number of Utf-8 codepoints in the line, not bytes. Includes the line delimiter
+// in the count. If that line delimiter is CRLF ('\r\n'), then it adds two.
+func (b *RopeBuffer) RunesInLineWithDelim(line int) int {
+	linePos := b.getLineStartPos(line)
+
+	_rope := (*rope.Node)(b)
+	ropeLen := _rope.Len()
+
+	if linePos >= ropeLen {
+		return 0
+	}
+
+	var count int
+
+	_, r := _rope.SplitAt(linePos)
+	l, _ := r.SplitAt(ropeLen - linePos)
+
+	var isCRLF bool
+	l.EachLeaf(func(n *rope.Node) bool {
+		data := n.Value() // Reference; not a copy.
+		var i int
+		for i < len(data) {
+			count++ // Before: we count the line delimiter
+			if data[i] == '\r' {
+				isCRLF = true
+			} else if data[i] == '\n' {
+				return true // Read (past-tense) the whole line
+			} else {
+				if isCRLF {
+					isCRLF = false
+					count++ // Add the '\r' we previously thought was part of the delim.
+				}
+			}
+			
+			// Respect Utf-8 codepoint boundaries
+			_, size := utf8.DecodeRune(data[i:])
+			i += size
+		}
+		return false // Have not read the whole line, yet
+	})
+
+	return count
+}
+
 // RunesInLine returns the number of runes in the given line. That is, the
-// number of Utf-8 codepoints in the line, not bytes.
+// number of Utf-8 codepoints in the line, not bytes. Excludes line delimiters.
 func (b *RopeBuffer) RunesInLine(line int) int {
 	linePos := b.getLineStartPos(line)
-	return b.runesInLine(linePos)
+
+	_rope := (*rope.Node)(b)
+	ropeLen := _rope.Len()
+
+	if linePos >= ropeLen {
+		return 0
+	}
+
+	var count int
+
+	_, r := _rope.SplitAt(linePos)
+	l, _ := r.SplitAt(ropeLen - linePos)
+
+	var isCRLF bool
+	l.EachLeaf(func(n *rope.Node) bool {
+		data := n.Value() // Reference; not a copy.
+		var i int
+		for i < len(data) {
+			if data[i] == '\r' {
+				isCRLF = true
+			} else if data[i] == '\n' {
+				return true // Read (past-tense) the whole line
+			} else {
+				if isCRLF {
+					isCRLF = false
+					count++ // Add the '\r' we previously thought was part of the delim.
+				}
+			}
+			count++
+			
+			// Respect Utf-8 codepoint boundaries
+			_, size := utf8.DecodeRune(data[i:])
+			i += size
+		}
+		return false // Have not read the whole line, yet
+	})
+
+	return count
 }
 
 // ClampLineCol is a utility function to clamp any provided line and col to
 // only possible values within the buffer, pointing to runes. It first clamps
-// the line, then clamps the column.
+// the line, then clamps the column. The column is clamped between zero and
+// the last rune before the line delimiter.
 func (b *RopeBuffer) ClampLineCol(line, col int) (int, int) {
 	if line < 0 {
 		line = 0
@@ -201,8 +266,8 @@ func (b *RopeBuffer) ClampLineCol(line, col int) (int, int) {
 
 	if col < 0 {
 		col = 0
-	} else if cols := b.RunesInLine(line)-1; col > cols {
-		col = cols
+	} else if runes := b.RunesInLine(line); col > runes {
+		col = runes
 	}
 
 	return line, col

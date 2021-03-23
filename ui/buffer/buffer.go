@@ -35,6 +35,10 @@ type Buffer interface {
 	// endCol, inclusive bounds.
 	Remove(startLine, startCol, endLine, endCol int)
 
+	// Returns the number of occurrences of 'sequence' in the buffer, within the range
+	// of start line and col, to end line and col. [start, end) (exclusive end).
+	Count(startLine, startCol, endLine, endCol int, sequence []byte) int
+
 	// Len returns the number of bytes in the buffer.
 	Len() int
 
@@ -43,13 +47,19 @@ type Buffer interface {
 	// basically counts the number of newline ('\n') characters in a buffer.
 	Lines() int
 
-	// ColsInLine returns the number of columns in the given line. That is, the
-	// number of Utf-8 codepoints (or runes) in line, not bytes.
+	// RunesInLine returns the number of runes in the given line. That is, the
+	// number of Utf-8 codepoints in the line, not bytes. Includes the line delimiter
+	// in the count. If that line delimiter is CRLF ('\r\n'), then it adds two.
+	RunesInLineWithDelim(line int) int
+
+	// RunesInLine returns the number of runes in the given line. That is, the
+	// number of Utf-8 codepoints in the line, not bytes. Excludes line delimiters.
 	RunesInLine(line int) int
 
 	// ClampLineCol is a utility function to clamp any provided line and col to
-	// only possible values within the buffer. It first clamps the line, then clamps
-	// the column within that line.
+	// only possible values within the buffer, pointing to runes. It first clamps
+	// the line, then clamps the column. The column is clamped between zero and
+	// the last rune before the line delimiter.
 	ClampLineCol(line, col int) (int, int)
 
 	WriteTo(w io.Writer) (int64, error)

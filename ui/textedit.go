@@ -48,9 +48,9 @@ type TextEdit struct {
 	Theme *Theme
 }
 
-// New will initialize the buffer using the given string `contents`. If the `filePath` or `FilePath` is empty,
+// New will initialize the buffer using the given 'contents'. If the 'filePath' or 'FilePath' is empty,
 // it can be assumed that the TextEdit has no file association, or it is unsaved.
-func NewTextEdit(screen *tcell.Screen, filePath, contents string, theme *Theme) *TextEdit {
+func NewTextEdit(screen *tcell.Screen, filePath string, contents []byte, theme *Theme) *TextEdit {
 	te := &TextEdit{
 		Buffer:      nil,
 		LineNumbers: true,
@@ -66,11 +66,11 @@ func NewTextEdit(screen *tcell.Screen, filePath, contents string, theme *Theme) 
 
 // SetContents applies the string to the internal buffer of the TextEdit component.
 // The string is determined to be either CRLF or LF based on line-endings.
-func (t *TextEdit) SetContents(contents string) {
+func (t *TextEdit) SetContents(contents []byte) {
 	var i int
 loop:
 	for i < len(contents) {
-		switch r {
+		switch contents[i] {
 		case '\n':
 			t.IsCRLF = false
 			break loop
@@ -79,7 +79,8 @@ loop:
 			t.IsCRLF = true
 			break loop
 		}
-		i += utf8.DecodeRune(contents[i:])
+		_, size := utf8.DecodeRune(contents[i:])
+		i += size
 	}
 
 	t.Buffer = buffer.NewRopeBuffer(contents)
@@ -94,10 +95,6 @@ func (t *TextEdit) GetLineDelimiter() string {
 	}
 }
 
-func (t *TextEdit) String() string {
-	return strings.Join(t.buffer, t.GetLineDelimiter())
-}
-
 // Changes a file's line delimiters. If `crlf` is true, then line delimiters are replaced
 // with Windows CRLF (\r\n). If `crlf` is false, then line delimtiers are replaced with Unix
 // LF (\n). The TextEdit `IsCRLF` variable is updated with the new value.
@@ -105,6 +102,8 @@ func (t *TextEdit) ChangeLineDelimiters(crlf bool) {
 	t.IsCRLF = crlf
 	t.Dirty = true
 	// line delimiters are constructed with String() function
+	// TODO: ^ not true anymore ^
+	panic("Cannot ChangeLineDelimiters")
 }
 
 // Delete with `forwards` false will backspace, destroying the character before the cursor,
@@ -114,59 +113,26 @@ func (t *TextEdit) Delete(forwards bool) {
 	t.Dirty = true
 
 	if t.selectMode { // If text is selected, delete the whole selection
-		t.cury, t.curx = t.clampLineCol(t.selection.EndLine, t.selection.EndCol)
+		t.cury, t.curx = t.Buffer.ClampLineCol(t.selection.EndLine, t.selection.EndCol)
 		t.selectMode = false // Disable selection and prevent infinite loop
 
-		t.Delete(true) // Delete last character of selection first
-		// Delete from end, backwards, until we are at the start of the selection
-		for { // TODO: inefficient
-			if t.cury == t.selection.StartLine && t.curx == t.selection.StartCol {
-				break
-			}
-			t.Delete(false) // NOTE: we want to delete start column as well.
-		}
+		// Delete the region
+		t.Buffer.Remove(t.selection.StartLine, t.selection.StartCol, t.selection.EndLine, t.selection.EndCol)
+		t.SetLineCol(t.selection.StartLine, t.selection.StartCol) // Set cursor to start of region
+
 		return
 	}
 
-	// TODO: deleting through lines
 	if forwards { // Delete the character after the cursor
-		if t.curx < len(t.buffer[t.cury]) { // If the cursor is not at the end of the line...
-			lineRunes := []rune(t.buffer[t.cury])
-			copy(lineRunes[t.curx:], lineRunes[t.curx+1:]) // Shift runes at cursor + 1 left
-			lineRunes = lineRunes[:len(lineRunes)-1]       // Shrink line length
-			t.buffer[t.cury] = string(lineRunes)           // Reassign line
-		} else { // If the cursor is at the end of the line...
-			if t.cury < len(t.buffer)-1 { // And the cursor is not at the last line...
-				oldLineIdx := t.cury + 1
-				curLineRunes := []rune(t.buffer[t.cury])
-				oldLineRunes := []rune(t.buffer[oldLineIdx])
-				curLineRunes = append(curLineRunes, oldLineRunes...) // Append runes from deleted line to current line
-				t.buffer[t.cury] = string(curLineRunes)              // Update the current line with the new runes
-
-				copy(t.buffer[oldLineIdx:], t.buffer[oldLineIdx+1:]) // Shift lines below the old line up
-				t.buffer = t.buffer[:len(t.buffer)-1]                // Shrink buffer by one line
-			}
+		// If the cursor is not at the end of the last line...
+		if t.cury < t.Buffer.Lines()-1 || t.curx < t.Buffer.RunesInLine(t.cury) {
+			t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
 		}
 	} else { // Delete the character before the cursor
-		if t.curx > 0 { // If the cursor is not at the beginning of the line...
-			lineRunes := []rune(t.buffer[t.cury])
-			copy(lineRunes[t.curx-1:], lineRunes[t.curx:]) // Shift runes at cursor left
-			lineRunes = lineRunes[:len(lineRunes)-1]       // Shrink line length
-			t.buffer[t.cury] = string(lineRunes)           // Reassign line
-
-			t.SetLineCol(t.cury, t.curx-1) // Shift cursor left
-		} else { // If the cursor is at the beginning of the line...
-			if t.cury > 0 { // And the cursor is not at the first line...
-				oldLineIdx := t.cury
-				t.SetLineCol(t.cury-1, len(t.buffer[t.cury-1])) // Cursor goes to the end of the above line
-				curLineRunes := []rune(t.buffer[t.cury])
-				oldLineRunes := []rune(t.buffer[oldLineIdx])
-				curLineRunes = append(curLineRunes, oldLineRunes...) // Append the old line to the current line
-				t.buffer[t.cury] = string(curLineRunes)              // Update the current line to the new runes
-
-				copy(t.buffer[oldLineIdx:], t.buffer[oldLineIdx+1:]) // Shift lines below the old line up
-				t.buffer = t.buffer[:len(t.buffer)-1]                // Shrink buffer by one line
-			}
+		// If the cursor is not at the first column of the first line...
+		if t.cury > 0 || t.curx > 0 {
+			t.CursorLeft() // Back up to that character
+			t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
 		}
 	}
 }
@@ -188,97 +154,43 @@ func (t *TextEdit) Insert(contents string) {
 		case '\r':
 			// If the character after is a \n, then it is a CRLF
 			if i+1 < len(runes) && runes[i+1] == '\n' {
-				i++
-				t.insertNewLine()
+				i++ // Consume '\n' after
+				t.Buffer.Insert(t.cury, t.curx, []byte{'\n'})
+				t.SetLineCol(t.cury+1, 0) // Go to the start of that new line
 			}
 		case '\n':
-			t.insertNewLine()
+			t.Buffer.Insert(t.cury, t.curx, []byte{'\n'})
+			t.SetLineCol(t.cury+1, 0) // Go to the start of that new line
 		case '\b':
 			t.Delete(false) // Delete the character before the cursor
 		case '\t':
 			if !t.UseHardTabs { // If this file does not use hard tabs...
 				// Insert spaces
-				spaces := []rune(strings.Repeat(" ", t.TabSize))
-				spacesLen := len(spaces)
-
-				lineRunes := []rune(t.buffer[t.cury])
-				lineRunes = append(lineRunes, spaces...)
-				copy(lineRunes[t.curx+spacesLen:], lineRunes[t.curx:]) // Shift runes at cursor to the right
-				copy(lineRunes[t.curx:], spaces)                       // Copy spaces into the gap
-
-				t.buffer[t.cury] = string(lineRunes) // Reassign the line
-
-				t.SetLineCol(t.cury, t.curx+spacesLen) // Advance the cursor
+				spaces := strings.Repeat(" ", t.TabSize)
+				t.Buffer.Insert(t.cury, t.curx, []byte(spaces))
+				t.SetLineCol(t.cury, t.curx+len(spaces)) // Advance the cursor
 				break
 			}
 			fallthrough // Append the \t character
 		default:
 			// Insert character into line
-			lineRunes := []rune(t.buffer[t.cury])
-			lineRunes = append(lineRunes, ch)              // Extend the length of the string
-			copy(lineRunes[t.curx+1:], lineRunes[t.curx:]) // Shift runes at cursor to the right
-			lineRunes[t.curx] = ch
-
-			t.buffer[t.cury] = string(lineRunes) // Reassign the line
-
+			t.Buffer.Insert(t.cury, t.curx, []byte(string(ch)))
 			t.SetLineCol(t.cury, t.curx+1) // Advance the cursor
 		}
 	}
 	t.prevCurCol = t.curx
 }
 
-// insertNewLine inserts a line break at the cursor and sets the cursor position to the first
-// column of that new line. Text before the cursor on the current line remains on that line,
-// text at or after the cursor on the current line is moved to the new line.
-func (t *TextEdit) insertNewLine() {
-	t.Dirty = true
-
-	lineRunes := []rune(t.buffer[t.cury]) // A slice of runes of the old line
-	movedRunes := lineRunes[t.curx:]      // A slice of the old line containing runes to be moved
-	newLineRunes := make([]rune, len(movedRunes))
-	copy(newLineRunes, movedRunes)                // Copy old runes to new line
-	t.buffer[t.cury] = string(lineRunes[:t.curx]) // Shrink old line's length
-
-	t.buffer = append(t.buffer, "")                // Increment buffer length
-	copy(t.buffer[t.cury+2:], t.buffer[t.cury+1:]) // Shift lines after current line down
-	t.buffer[t.cury+1] = string(newLineRunes)      // Assign the new line
-
-	t.SetLineCol(t.cury+1, 0) // Go to start of new line
-	t.prevCurCol = t.curx
-}
-
-// getTabCountInLineAtCol returns tabs in the given line, at or before that column position,
+// getTabCountInLineAtCol returns tabs in the given line, before the column position,
 // if hard tabs are enabled. If hard tabs are not enabled, the function returns zero.
 // Multiply returned tab count by TabSize to get the offset produced by tabs.
 // Col must be a valid column position in the given line. Maybe call clampLineCol before
 // this function.
 func (t *TextEdit) getTabCountInLineAtCol(line, col int) int {
 	if t.UseHardTabs {
-		lineRunes := []rune(t.buffer[line])
-		return strings.Count(string(lineRunes[:col]), "\t")
+		return t.Buffer.Count(line, 0, line, col, []byte{'\t'})
 	}
 	return 0
-}
-
-// clampLineCol clamps the line and col inputs to only valid values within the buffer.
-func (t *TextEdit) clampLineCol(line, col int) (int, int) {
-	// Clamp the line input
-	if line < 0 {
-		line = 0
-	} else if len := len(t.buffer); line >= len { // If new line is beyond the length of the buffer...
-		line = len - 1 // Change that line to be the end of the buffer, instead
-	}
-
-	lineRunes := []rune(t.buffer[line])
-
-	// Clamp the column input
-	if col < 0 {
-		col = 0
-	} else if len := len(lineRunes); col > len {
-		col = len
-	}
-
-	return line, col
 }
 
 // GetLineCol returns (line, col) of the cursor. Zero is origin for both.
@@ -291,10 +203,10 @@ func (t *TextEdit) GetLineCol() (int, int) {
 // If `col` is out of bounds, `col` will be clamped to the closest column available for the line.
 // Will scroll the TextEdit just enough to see the line the cursor is at.
 func (t *TextEdit) SetLineCol(line, col int) {
-	line, col = t.clampLineCol(line, col)
+	line, col = t.Buffer.ClampLineCol(line, col)
 
 	// Handle hard tabs
-	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1) // Offset for the current line from hard tabs (temporary; purely visual)
+	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1) // Offset for the current line from hard tabs (temporary; purely visual)
 
 	// Scroll the screen when going to lines out of view
 	if line >= t.scrolly+t.height-1 { // If the new line is below view...
@@ -312,6 +224,10 @@ func (t *TextEdit) SetLineCol(line, col int) {
 		t.scrollx = col + tabOffset // Scroll left enough to view that column
 	}
 
+	if t.scrollx < 0 {
+		panic("oops")
+	}
+
 	t.cury, t.curx = line, col
 	if t.focused && !t.selectMode {
 		(*t.screen).ShowCursor(t.x+columnWidth+col+tabOffset-t.scrollx, t.y+line-t.scrolly)
@@ -325,7 +241,7 @@ func (t *TextEdit) CursorUp() {
 	if t.cury <= 0 { // If the cursor is at the first line...
 		t.SetLineCol(t.cury, 0) // Go to beginning
 	} else {
-		line, col := t.clampLineCol(t.cury-1, t.prevCurCol)
+		line, col := t.Buffer.ClampLineCol(t.cury-1, t.prevCurCol)
 		if t.UseHardTabs { // When using hard tabs, subtract offsets produced by tabs
 			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1)
 			col -= tabOffset // We still count each \t in the col
@@ -336,10 +252,10 @@ func (t *TextEdit) CursorUp() {
 
 // CursorDown moves the cursor down a line.
 func (t *TextEdit) CursorDown() {
-	if t.cury >= len(t.buffer)-1 { // If the cursor is at the last line...
-		t.SetLineCol(t.cury, len(t.buffer[t.cury])) // Go to end of current line
+	if t.cury >= t.Buffer.Lines()-1 { // If the cursor is at the last line...
+		t.SetLineCol(t.cury, math.MaxInt32) // Go to end of current line
 	} else {
-		line, col := t.clampLineCol(t.cury+1, t.prevCurCol)
+		line, col := t.Buffer.ClampLineCol(t.cury+1, t.prevCurCol)
 		if t.UseHardTabs {
 			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1)
 			col -= tabOffset // We still count each \t in the col
@@ -363,7 +279,7 @@ func (t *TextEdit) CursorLeft() {
 func (t *TextEdit) CursorRight() {
 	// If we are at the end of the current line,
 	// and not at the last line...
-	if t.curx >= len([]rune(t.buffer[t.cury])) && t.cury < len(t.buffer)-1 {
+	if t.curx >= t.Buffer.RunesInLine(t.cury) && t.cury < t.Buffer.Lines()-1 {
 		t.SetLineCol(t.cury+1, 0) // Go to beginning of line below
 	} else {
 		t.SetLineCol(t.cury, t.curx+1)
@@ -377,39 +293,25 @@ func (t *TextEdit) getColumnWidth() int {
 	columnWidth := 0
 	if t.LineNumbers {
 		// Set columnWidth to max count of line number digits
-		columnWidth = Max(2, len(strconv.Itoa(len(t.buffer)))) // Column has minimum width of 2
+		columnWidth = Max(2, len(strconv.Itoa(t.Buffer.Lines()))) // Column has minimum width of 2
 	}
 	return columnWidth
 }
 
-// GetSelectedString returns a string of the region of the buffer that is currently selected.
-// If the returned string is empty, then nothing was selected.
-func (t *TextEdit) GetSelectedString() string {
+// GetSelectedBytes returns a byte slice of the region of the buffer that is currently selected.
+// If the returned string is empty, then nothing was selected. The slice returned may or may not
+// be a copy of the buffer, so do not write to it.
+func (t *TextEdit) GetSelectedBytes() []byte {
 	if t.selectMode {
-		lines := make([]string, t.selection.EndLine-t.selection.StartLine+1)
-		copy(lines, t.buffer[t.selection.StartLine:t.selection.EndLine+1])
-
-		// Start last line at end col
-		lastLine := lines[len(lines)-1]
-		if t.selection.EndCol >= len(lastLine) { // If the line delimiter of the last line is selected...
-			// Don't access out-of-bounds and include the line delimiter
-			lastLine = string([]rune(lastLine)[:t.selection.EndCol]) + t.GetLineDelimiter()
-		} else { // Normal access
-			lastLine = string([]rune(lastLine)[:t.selection.EndCol+1])
-		}
-		lines[len(lines)-1] = lastLine
-
-		lines[0] = string([]rune(lines[0])[t.selection.StartCol:]) // Start first line at start col
-
-		return strings.Join(lines, t.GetLineDelimiter())
+		return t.Buffer.Slice(t.selection.StartLine, t.selection.StartCol, t.selection.EndLine, t.selection.EndCol)
 	}
-	return ""
+	return []byte{}
 }
 
 // Draw renders the TextEdit component.
 func (t *TextEdit) Draw(s tcell.Screen) {
 	columnWidth := t.getColumnWidth()
-	bufferLen := len(t.buffer)
+	bufferLines := t.Buffer.Lines()
 
 	textEditStyle := t.Theme.GetOrDefault("TextEdit")
 	selectedStyle := t.Theme.GetOrDefault("TextEditSelected")
@@ -428,17 +330,15 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 		lineNumStr := ""
 
-		if line < bufferLen { // Only index buffer if we are within it...
+		if line < bufferLines { // Only index buffer if we are within it...
 			lineNumStr = strconv.Itoa(line + 1) // Line number as a string
 
-			var lineStr string // Line to be drawn
+			lineStr := string(t.Buffer.Line(line)) // Line to be drawn
 			if t.UseHardTabs {
-				lineStr = strings.ReplaceAll(t.buffer[line], "\t", tabStr)
-			} else {
-				lineStr = t.buffer[line]
+				lineStr = strings.ReplaceAll(lineStr, "\t", tabStr)
 			}
 
-			lineRunes := []rune(lineStr)
+			lineRunes := []rune(lineStr) // TODO: something more efficient here
 			if len(lineRunes) >= t.scrollx { // If some of the line is visible at our horizontal scroll...
 				lineRunes = lineRunes[t.scrollx:] // Trim left side of string we cannot see
 
@@ -454,10 +354,10 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.StartCol)
 						selStartIdx = t.selection.StartCol + tabCount*(t.TabSize-1) - t.scrollx
 					}
-					selEndIdx := len(lineRunes) - t.scrollx // used inclusively
+					selEndIdx := len(lineRunes) - t.scrollx - 1 // used inclusively
 					if line == t.selection.EndLine {        // If the selection ends somewhere in the line...
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.EndCol)
-						selEndIdx = t.selection.EndCol + tabCount*(t.TabSize-1) - t.scrollx
+						selEndIdx = t.selection.EndCol - 1 + tabCount*(t.TabSize-1) - t.scrollx
 					}
 
 					// NOTE: a special draw function just for selections. Should combine this with ordinary draw
@@ -620,7 +520,7 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 			t.SetLineCol(t.cury, 0)
 			t.prevCurCol = t.curx
 		case tcell.KeyEnd:
-			t.SetLineCol(t.cury, len(t.buffer[t.cury]))
+			t.SetLineCol(t.cury, math.MaxInt32) // Max column
 			t.prevCurCol = t.curx
 		case tcell.KeyPgUp:
 			t.SetLineCol(t.scrolly-t.height, t.curx) // Go a page up
@@ -641,7 +541,7 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		case tcell.KeyTab:
 			t.Insert("\t") // (can translate to four spaces)
 		case tcell.KeyEnter:
-			t.insertNewLine()
+			t.Insert("\n")
 
 		// Inserting
 		case tcell.KeyRune:
