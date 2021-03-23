@@ -338,7 +338,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 				lineStr = strings.ReplaceAll(lineStr, "\t", tabStr)
 			}
 
-			lineRunes := []rune(lineStr) // TODO: something more efficient here
+			lineRunes := []rune(lineStr)
 			if len(lineRunes) >= t.scrollx { // If some of the line is visible at our horizontal scroll...
 				lineRunes = lineRunes[t.scrollx:] // Trim left side of string we cannot see
 
