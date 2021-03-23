@@ -129,12 +129,16 @@ func main() {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
 			if len(te.FilePath) > 0 {
-				// Write the contents into the file, creating one if it does
-				// not exist.
-				err := ioutil.WriteFile(te.FilePath, te.Buffer.Bytes(), fs.ModePerm)
+				f, err := os.OpenFile(te.FilePath, os.O_WRONLY|os.O_CREATE, fs.ModePerm)
 				if err != nil {
-					panic("Could not write file at path " + te.FilePath)
-				} // TODO: Replace with io.Writer method
+					panic(err)
+				}
+				defer f.Close()
+
+				_, err = te.Buffer.WriteTo(f) // TODO: check count
+				if err != nil {
+					panic(fmt.Sprintf("Error occurred while writing buffer to file: %v", err))
+				}
 
 				te.Dirty = false
 			}

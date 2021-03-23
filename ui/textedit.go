@@ -357,7 +357,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 					selEndIdx := len(lineRunes) - t.scrollx - 1 // used inclusively
 					if line == t.selection.EndLine {        // If the selection ends somewhere in the line...
 						tabCount := t.getTabCountInLineAtCol(line, t.selection.EndCol)
-						selEndIdx = t.selection.EndCol - 1 + tabCount*(t.TabSize-1) - t.scrollx
+						selEndIdx = t.selection.EndCol + tabCount*(t.TabSize-1) - t.scrollx
 					}
 
 					// NOTE: a special draw function just for selections. Should combine this with ordinary draw
