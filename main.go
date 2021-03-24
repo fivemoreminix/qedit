@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/fivemoreminix/diesel/ui"
+	"github.com/fivemoreminix/qedit/ui"
 	"github.com/gdamore/tcell/v2"
 )
 

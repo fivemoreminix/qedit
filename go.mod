@@ -1,4 +1,4 @@
-module github.com/fivemoreminix/diesel
+module github.com/fivemoreminix/qedit
 
 go 1.12
 

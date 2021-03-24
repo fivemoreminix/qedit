@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/fivemoreminix/diesel/ui/buffer"
+	"github.com/fivemoreminix/qedit/ui/buffer"
 	"github.com/gdamore/tcell/v2"
 )
 
