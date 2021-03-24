@@ -16,17 +16,6 @@ func TestRopeInserting(t *testing.T) {
 		t.Errorf("string does not match \"withtext\", got %#v", str)
 		t.Fail()
 	}
-
-	//withtext
-	//
-
-	// Note the inclusive bounds and pointing to last line, first column.
-	buf.Remove(0, 0, 1, 0) // Delete all of the buffer
-
-	if str := string(buf.Bytes()); str != "" {
-		t.Errorf("string does not math \"\", got %#v", str)
-		t.Fail()
-	}
 }
 
 func TestRopeBounds(t *testing.T) {

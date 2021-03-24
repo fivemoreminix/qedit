@@ -129,7 +129,7 @@ func main() {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
 			if len(te.FilePath) > 0 {
-				f, err := os.OpenFile(te.FilePath, os.O_WRONLY|os.O_CREATE, fs.ModePerm)
+				f, err := os.OpenFile(te.FilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.ModePerm)
 				if err != nil {
 					panic(err)
 				}
@@ -312,7 +312,7 @@ func main() {
 			s.Sync() // Redraw everything
 		case *tcell.EventKey:
 			// On Escape, we change focus between editor and the MenuBar.
-			if dialog == nil { // While no dialog is present...
+			if dialog == nil {
 				if ev.Key() == tcell.KeyEscape {
 					if focusedComponent == tabContainer {
 						changeFocus(menuBar)

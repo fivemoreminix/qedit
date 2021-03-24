@@ -113,7 +113,6 @@ func (t *TextEdit) Delete(forwards bool) {
 	t.Dirty = true
 
 	if t.selectMode { // If text is selected, delete the whole selection
-		t.cury, t.curx = t.Buffer.ClampLineCol(t.selection.EndLine, t.selection.EndCol)
 		t.selectMode = false // Disable selection and prevent infinite loop
 
 		// Delete the region
