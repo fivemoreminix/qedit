@@ -114,7 +114,17 @@ func (b *RopeBuffer) Insert(line, col int, value []byte) {
 // Remove deletes any characters between startLine, startCol, and endLine,
 // endCol, inclusive bounds.
 func (b *RopeBuffer) Remove(startLine, startCol, endLine, endCol int) {
-	(*rope.Node)(b).Remove(b.pos(startLine, startCol), b.pos(endLine, endCol)+1)
+	start := b.pos(startLine, startCol)
+	end := b.pos(endLine, endCol) + 1
+
+	if len := (*rope.Node)(b).Len(); end >= len {
+		end = len
+		if start > end {
+			start = end
+		}
+	}
+
+	(*rope.Node)(b).Remove(start, end)
 }
 
 // Returns the number of occurrences of 'sequence' in the buffer, within the range

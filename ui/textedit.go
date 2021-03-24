@@ -302,6 +302,7 @@ func (t *TextEdit) getColumnWidth() int {
 // If the returned string is empty, then nothing was selected. The slice returned may or may not
 // be a copy of the buffer, so do not write to it.
 func (t *TextEdit) GetSelectedBytes() []byte {
+	// TODO: there's a bug with copying text
 	if t.selectMode {
 		return t.Buffer.Slice(t.selection.StartLine, t.selection.StartCol, t.selection.EndLine, t.selection.EndCol)
 	}

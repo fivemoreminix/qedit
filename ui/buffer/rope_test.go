@@ -4,14 +4,27 @@ import "testing"
 
 func TestRopeInserting(t *testing.T) {
 	var buf Buffer = NewRopeBuffer([]byte("some"))
-	buf.Insert(0, 4, []byte(" text")) // Insert " text" after "some"
+	buf.Insert(0, 4, []byte(" text\n")) // Insert " text" after "some"
 	buf.Insert(0, 0, []byte("with\n\t"))
-	// "with\n\tsome text"
+	//with
+	//	some text
+	//
 
 	buf.Remove(0, 4, 1, 5) // Delete from line 0, col 4, to line 1, col 6 "\n\tsome "
 
-	if str := string(buf.Bytes()); str != "withtext" {
+	if str := string(buf.Bytes()); str != "withtext\n" {
 		t.Errorf("string does not match \"withtext\", got %#v", str)
+		t.Fail()
+	}
+
+	//withtext
+	//
+
+	// Note the inclusive bounds and pointing to last line, first column.
+	buf.Remove(0, 0, 1, 0) // Delete all of the buffer
+
+	if str := string(buf.Bytes()); str != "" {
+		t.Errorf("string does not math \"\", got %#v", str)
 		t.Fail()
 	}
 }
