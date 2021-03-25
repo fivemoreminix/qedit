@@ -1,2 +1,5 @@
 # Block executable
 qedit*
+
+# Unblock screenshots
+!screenshots/*
