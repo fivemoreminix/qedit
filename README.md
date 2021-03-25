@@ -1,8 +1,8 @@
 # qedit
 
 qedit is a simple and easy to maintain editor, designed to run portably on as many
-operating systems and architectures as possible. It does so by leveraging the cross-
-compile features of Go, and the very portable [tcell](https://github.com/gdamore/tcell)
+operating systems and architectures as possible. It does so by leveraging the cross-compile
+features of Go, and the very portable [tcell](https://github.com/gdamore/tcell)
 terminal library. A side effect of using Go is the absolute simplicity with which
 the project can be maintained. For an open source project under the very permissive
 MIT license, this is important.
@@ -19,12 +19,12 @@ MIT license, this is important.
 
 ## Goals
 
- [X] DOS-like user interface library for Go/tcell (diesel)
- [X] Modern [rope](https://en.wikipedia.org/wiki/Rope_(data_structure) buffer (used in emacs)
- [X] Modern text editing, including: copy/paste, mouse support, selection, etc.
- [ ] Btree-based tiling and floating window management (panels)
- [ ] Extensions (via IPC or the planned [scripting language](https://github.com/d5/tengo))
- [ ] Built-in terminal
+ * DOS-like user interface library for Go/tcell (diesel)
+ * Modern [rope](https://en.wikipedia.org/wiki/Rope_(data_structure)) buffer (used in emacs)
+ * Modern text editing, including: copy/paste, mouse support, selection, etc.
+ * Btree-based tiling and floating window management (panels)
+ * Extensions (via IPC or the planned [scripting language](https://github.com/d5/tengo))
+ * Built-in terminal
 
 ## Screenshots
 
@@ -67,8 +67,8 @@ change how I am working on qedit.
 
 As for types of contributions: I am currently seeking bug fixes, and resolving all of
 my `TODO` comments in the code. Or possibly removing them and turning them into issues.
-Possibly the best contribution I could receive is someone using my editor as a daily-
-driver (bless them for their troubles) and reporting issues or improvements.
+Possibly the best contribution I could receive is someone using my editor as a daily-driver
+(bless them for their troubles) and reporting issues or improvements.
 
 If you would like to communicate, you can message me on Matrix: `@fivemoreminix:matrix.org`,
 or Discord: `fivemoreminix#7637`, or even email: thelukaswils ATT (the google one)
