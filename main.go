@@ -85,12 +85,12 @@ func main() {
 
 	menuBar = ui.NewMenuBar(&theme)
 
-	fileMenu := ui.NewMenu("_File", &theme)
+	fileMenu := ui.NewMenu("File", 0, &theme)
 
-	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_New File", Shortcut: "Ctrl+N", Callback: func() {
+	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New File", Shortcut: "Ctrl+N", Callback: func() {
 		textEdit := ui.NewTextEdit(&s, "", []byte{}, &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
-	}}, &ui.ItemEntry{Name: "_Open...", Shortcut: "Ctrl+O", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Open...", Shortcut: "Ctrl+O", Callback: func() {
 		callback := func(filePaths []string) {
 			for _, path := range filePaths {
 				file, err := os.Open(path)
@@ -124,7 +124,7 @@ func main() {
 			},
 		)
 		changeFocus(dialog)
-	}}, &ui.ItemEntry{Name: "_Save", Shortcut: "Ctrl+S", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Save", Shortcut: "Ctrl+S", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -144,7 +144,7 @@ func main() {
 			}
 			changeFocus(tabContainer)
 		}
-	}}, &ui.ItemEntry{Name: "Save _As...", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Save As...", QuickChar: 5, Callback: func() {
 		// TODO: implement a "Save as" dialog system, and show that when trying to save noname files
 		callback := func(filePaths []string) {
 			dialog = nil // Hide the file selector
@@ -163,7 +163,7 @@ func main() {
 			},
 		)
 		changeFocus(dialog)
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Close", Shortcut: "Ctrl+Q", Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Close", Shortcut: "Ctrl+Q", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
 		} else { // No tabs open; close the editor
@@ -172,35 +172,35 @@ func main() {
 		}
 	}}})
 
-	panelMenu := ui.NewMenu("_Panel", &theme)
+	panelMenu := ui.NewMenu("Panel", 0, &theme)
 
-	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Up", Shortcut: "Alt+Up", Callback: func() {
+	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Up", QuickChar: -1, Shortcut: "Alt+Up", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Focus Down", Shortcut: "Alt+Down", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Focus Down", QuickChar: -1, Shortcut: "Alt+Down", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Focus Left", Shortcut: "Alt+Left", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Focus Left", QuickChar: -1, Shortcut: "Alt+Left", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Focus Right", Shortcut: "Alt+Right", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Focus Right", QuickChar: -1, Shortcut: "Alt+Right", Callback: func() {
 
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split _Top", Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split Top", QuickChar: 6, Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Split _Bottom", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Split Bottom", QuickChar: 6, Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Split _Left", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Split Left", QuickChar: 6, Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Split _Right", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Split Right", QuickChar: 6, Callback: func() {
 
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "_Move", Shortcut: "Ctrl+M", Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Move", Shortcut: "Ctrl+M", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "_Resize", Shortcut: "Ctrl+R", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Resize", Shortcut: "Ctrl+R", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "_Float", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Float", Callback: func() {
 
 	}}})
 
-	editMenu := ui.NewMenu("_Edit", &theme)
+	editMenu := ui.NewMenu("Edit", 0, &theme)
 
-	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "_Cut", Shortcut: "Ctrl+X", Callback: func() {
+	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Cut", Shortcut: "Ctrl+X", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -212,7 +212,7 @@ func main() {
 			}
 			changeFocus(tabContainer)
 		}
-	}}, &ui.ItemEntry{Name: "_Copy", Shortcut: "Ctrl+C", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Copy", Shortcut: "Ctrl+C", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -222,7 +222,7 @@ func main() {
 			}
 			changeFocus(tabContainer)
 		}
-	}}, &ui.ItemEntry{Name: "_Paste", Shortcut: "Ctrl+V", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Paste", Shortcut: "Ctrl+V", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
@@ -235,13 +235,13 @@ func main() {
 
 			changeFocus(tabContainer)
 		}
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Select _All", Shortcut: "Ctrl+A", Callback: func() {
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Select All", QuickChar: 7, Shortcut: "Ctrl+A", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Select _Line", Callback: func() {
+	}}, &ui.ItemEntry{Name: "Select Line", QuickChar: 7, Callback: func() {
 
 	}}})
 
-	searchMenu := ui.NewMenu("_Search", &theme)
+	searchMenu := ui.NewMenu("Search", 0, &theme)
 
 	searchMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
 		s.Beep()

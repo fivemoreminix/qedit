@@ -11,6 +11,8 @@ import (
 // Item is an interface implemented by ItemEntry and ItemMenu to be listed in Menus.
 type Item interface {
 	GetName() string
+	// Returns a character/rune index of the name of the item.
+	GetQuickCharIdx() int
 	// A Shortcut is a string of the modifiers+key name of the action that must be pressed
 	// to trigger the shortcut. For example: "Ctrl+Alt+X". The order of the modifiers is
 	// very important. Letters are case-sensitive. See the KeyEvent.Name() function of tcell
@@ -27,20 +29,29 @@ func (i *ItemSeparator) GetName() string {
 	return ""
 }
 
+func (i *ItemSeparator) GetQuickCharIdx() int {
+	return 0
+}
+
 func (i *ItemSeparator) GetShortcut() string {
 	return ""
 }
 
 // ItemEntry is a listing in a Menu with a name and callback.
 type ItemEntry struct {
-	Name     string
-	Shortcut string
-	Callback func()
+	Name      string
+	QuickChar int // Character/rune index of Name
+	Shortcut  string
+	Callback  func()
 }
 
 // GetName returns the name of the ItemEntry.
 func (i *ItemEntry) GetName() string {
 	return i.Name
+}
+
+func (i *ItemEntry) GetQuickCharIdx() int {
+	return i.QuickChar
 }
 
 func (i *ItemEntry) GetShortcut() string {
@@ -50,6 +61,10 @@ func (i *ItemEntry) GetShortcut() string {
 // GetName returns the name of the Menu.
 func (m *Menu) GetName() string {
 	return m.Name
+}
+
+func (m *Menu) GetQuickCharIdx() int {
+	return m.QuickChar
 }
 
 func (m *Menu) GetShortcut() string {
@@ -143,16 +158,15 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	DrawRect(s, b.x, b.y, b.width, 1, ' ', normalStyle)
 	col := b.x + 1
 	for i, item := range b.menus {
-		str := fmt.Sprintf(" %s ", item.Name) // Surround the name in spaces
-
 		sty := normalStyle		
 		if b.focused && b.selected == i {
 			sty = b.Theme.GetOrDefault("MenuBarSelected") // Use special style for selected item
 		}
 
-		DrawQuickCharStr(s, col, b.y, str, sty)
+		str := fmt.Sprintf(" %s ", item.Name)
+		cols := DrawQuickCharStr(s, col, b.y, str, item.QuickChar+1, sty)
 
-		col += len(str)
+		col += cols
 	}
 
 	if b.menusVisible {
@@ -245,8 +259,8 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 		case tcell.KeyRune: // Search for the matching quick char in menu names
 			if !b.menusVisible { // If the selected Menu is not open/visible
 				for i, m := range b.menus {
-					found, r := QuickCharInString(m.Name)
-					if found && r == ev.Rune() {
+					r := QuickCharInString(m.Name, m.QuickChar)
+					if r != 0 && r == ev.Rune() {
 						b.selected = i // Select menu at i
 						b.ActivateMenuUnderCursor() // Show menu
 						break
@@ -270,8 +284,9 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 
 // A Menu contains one or more ItemEntry or ItemMenus.
 type Menu struct {
-	Name    string
-	Items   []Item
+	Name      string
+	QuickChar int // Character/rune index of Name
+	Items     []Item
 
 	x, y                 int
 	width, height        int    // Size may not be settable
@@ -282,9 +297,10 @@ type Menu struct {
 }
 
 // New creates a new Menu. `items` can be `nil`.
-func NewMenu(name string, theme *Theme) *Menu {
+func NewMenu(name string, quickChar int, theme *Theme) *Menu {
 	return &Menu{
 		Name:  name,
+		QuickChar: quickChar,
 		Items: make([]Item, 0, 6),
 		Theme: theme,
 	}
@@ -364,10 +380,10 @@ func (m *Menu) Draw(s tcell.Screen) {
 				sty = defaultStyle
 			}
 			
-			nameLen := DrawQuickCharStr(s, m.x+1, m.y+1+i, item.GetName(), sty)
+			nameCols := DrawQuickCharStr(s, m.x+1, m.y+1+i, item.GetName(), item.GetQuickCharIdx(), sty)
 
-			str := strings.Repeat(" ", m.width-2-nameLen) // Fill space after menu names to border
-			DrawStr(s, m.x+1+nameLen, m.y+1+i, str, sty)
+			str := strings.Repeat(" ", m.width-2-nameCols) // Fill space after menu names to border
+			DrawStr(s, m.x+1+nameCols, m.y+1+i, str, sty)
 
 			if shortcut := item.GetShortcut(); len(shortcut) > 0 { // If the item has a shortcut...
 				str := " " + shortcut + " "
@@ -470,8 +486,8 @@ func (m *Menu) HandleEvent(event tcell.Event) bool {
 				if m.selected == i {
 					continue // Skip the item we're on
 				}
-				found, r := QuickCharInString(item.GetName())
-				if found && r == ev.Rune() {
+				r := QuickCharInString(item.GetName(), item.GetQuickCharIdx())
+				if r != 0 && r == ev.Rune() {
 					m.selected = i
 					break
 				}

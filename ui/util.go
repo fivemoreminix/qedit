@@ -1,23 +1,29 @@
 package ui
 
-import "unicode"
+import (
+	"unicode"
+	"unicode/utf8"
+)
 
-// QuickCharInString is used for finding the "quick char" in a string. A quick char
-// suffixes a '_' (underscore). So basically, this function returns any rune after
-// an underscore. The rune is always made lowercase. The bool returned is whether
-// the rune was found.
-func QuickCharInString(s string) (bool, rune) {
-	runes := []rune(s)
-	for i, r := range runes {
-		if r == '_' {
-			if i+1 < len(runes) {
-				return true, unicode.ToLower(runes[i+1])
-			} else {
-				return false, ' '
-			}
-		}
+// QuickCharInString is used for finding the "quick char" in a string. The rune
+// is always made lowercase. A rune of value zero is returned if the index was
+// less than zero, or greater or equal to, the number of runes in s.
+func QuickCharInString(s string, idx int) rune {
+	if idx < 0 {
+		return 0
 	}
-	return false, ' '
+
+	var runeIdx int
+
+	bytes := []byte(s)
+	for i := 0; i < len(bytes); runeIdx++ { // i is a byte index
+		r, size := utf8.DecodeRune(bytes[i:])
+		if runeIdx == idx {
+			return unicode.ToLower(r)
+		}
+		i += size
+	}
+	return 0
 }
 
 // Max returns the larger integer.

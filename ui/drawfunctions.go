@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"unicode/utf8"
+
+	"github.com/gdamore/tcell/v2"
+)
 
 // DrawRect renders a filled box at `x` and `y`, of size `width` and `height`.
 // Will not call `Show()`.
@@ -21,25 +25,26 @@ func DrawStr(s tcell.Screen, x, y int, str string, style tcell.Style) {
 }
 
 // DrawQuickCharStr renders a string very similar to how DrawStr works, but stylizes the
-// quick char (any rune after an underscore) with an underline. Returned is the number of
-// columns that were drawn to the screen. This is useful to know the length of the string
-// drawn, minus the underscore.
-func DrawQuickCharStr(s tcell.Screen, x, y int, str string, style tcell.Style) int {
-	runes := []rune(str)
-	col := 0
-	for i := 0; i < len(runes); i++ {
-		r := runes[i]
-		if r == '_' && i+1 < len(runes) {
-			i++
-			sty := style.Underline(true)
-						
-			s.SetContent(x+col, y, runes[i], nil, sty)
-		} else {
-			s.SetContent(x+col, y, r, nil, style)
+// quick char (the rune at `quickCharIdx`) with an underline. Returned is the number of
+// columns that were drawn to the screen.
+func DrawQuickCharStr(s tcell.Screen, x, y int, str string, quickCharIdx int, style tcell.Style) int {
+	var col int
+	var runeIdx int
+
+	bytes := []byte(str)
+	for i := 0; i < len(bytes); runeIdx++ { // i is a byte index
+		r, size := utf8.DecodeRune(bytes[i:])
+
+		sty := style
+		if runeIdx == quickCharIdx {
+			sty = style.Underline(true)						
 		}
+		s.SetContent(x+col, y, r, nil, sty)
+
+		i += size
 		col++
 	}
-	return col
+	return col // TODO: use mattn/runewidth
 }
 
 // DrawRectOutline draws only the outline of a rectangle, using `ul`, `ur`, `bl`, and `br`
