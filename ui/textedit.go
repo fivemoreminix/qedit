@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -27,6 +28,7 @@ type Region struct {
 // content being edited.
 type TextEdit struct {
 	Buffer      buffer.Buffer
+	Highlighter *buffer.Highlighter
 	LineNumbers bool   // Whether to render line numbers (and therefore the column)
 	Dirty       bool   // Whether the buffer has been edited
 	UseHardTabs bool   // When true, tabs are '\t'
@@ -52,7 +54,8 @@ type TextEdit struct {
 // it can be assumed that the TextEdit has no file association, or it is unsaved.
 func NewTextEdit(screen *tcell.Screen, filePath string, contents []byte, theme *Theme) *TextEdit {
 	te := &TextEdit{
-		Buffer:      nil,
+		Buffer:      nil, // Set in SetContents
+		Highlighter: nil, // Set in SetContents
 		LineNumbers: true,
 		UseHardTabs: true,
 		TabSize:     4,
@@ -84,6 +87,23 @@ loop:
 	}
 
 	t.Buffer = buffer.NewRopeBuffer(contents)
+
+	// TODO: replace with automatic determination of language via filetype
+	lang := &buffer.Language {
+		Name: "Go",
+		Filetypes: []string{".go"},
+		Rules: map[*regexp.Regexp]buffer.Syntax {
+			regexp.MustCompile("(if|for|func|switch)"): buffer.Keyword,
+		},
+	}
+
+	colorscheme := &buffer.Colorscheme {
+		buffer.Default: tcell.Style{}.Foreground(tcell.ColorLightGray).Background(tcell.ColorBlack),
+		buffer.Keyword: tcell.Style{}.Foreground(tcell.ColorBlue).Background(tcell.ColorBlack),
+	}
+
+	t.Highlighter = buffer.NewHighlighter(t.Buffer, lang, colorscheme)
+	t.Highlighter.Update()
 }
 
 // GetLineDelimiter returns "\r\n" for a CRLF buffer, or "\n" for an LF buffer.

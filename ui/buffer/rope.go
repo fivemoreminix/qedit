@@ -283,6 +283,42 @@ func (b *RopeBuffer) ClampLineCol(line, col int) (int, int) {
 	return line, col
 }
 
+// PosToLineCol converts a byte offset (position) of the buffer's bytes, into
+// a line and column. Unless you are working with the Bytes() function, this
+// is unlikely to be useful to you. Position will be clamped.
+func (b *RopeBuffer) PosToLineCol(pos int) (int, int) {
+	var line, col int
+	var wasAtNewline bool
+
+	_rope := (*rope.Node)(b)
+	_rope.EachLeaf(func(n *rope.Node) bool {
+		data := n.Value()
+		var i int
+		for i < len(data) {
+			if pos <= 0 {
+				return true
+			}
+
+			if data[i] == '\n' { // End of line
+				wasAtNewline = true
+				col++
+			} else if wasAtNewline { // Start of line
+				wasAtNewline = false
+				line, col = line+1, 0
+			} else {
+				col++ // Normal byte
+			}
+
+			_, size := utf8.DecodeRune(data[i:])
+			i += size
+			pos -= size
+		}
+		return false
+	})
+
+	return line, col
+}
+
 func (b *RopeBuffer) WriteTo(w io.Writer) (int64, error) {
 	return (*rope.Node)(b).WriteTo(w)
 }

@@ -15,7 +15,7 @@ import (
 type Buffer interface {
 	// Line returns a slice of the data at the given line, including the ending line-
 	// delimiter. line starts from zero. Data returned may or may not be a copy: do not
-	// write it.
+	// write to it.
 	Line(line int) []byte
 
 	// Returns a slice of the buffer from startLine, startCol, to endLine, endCol,
@@ -61,6 +61,11 @@ type Buffer interface {
 	// the line, then clamps the column. The column is clamped between zero and
 	// the last rune before the line delimiter.
 	ClampLineCol(line, col int) (int, int)
+
+	// PosToLineCol converts a byte offset (position) of the buffer's bytes, into
+	// a line and column. Unless you are working with the Bytes() function, this
+	// is unlikely to be useful to you. Position will be clamped.
+	PosToLineCol(pos int) (int, int)
 
 	WriteTo(w io.Writer) (int64, error)
 }

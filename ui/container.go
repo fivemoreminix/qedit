@@ -192,7 +192,7 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 	combinedTabLength += len(c.children) - 1 // add for spacing between tabs
 
 	// Draw tabs
-	col := c.x + c.width/2 - combinedTabLength/2 // Starting column
+	col := c.x + c.width/2 - combinedTabLength/2 - 1 // Starting column
 	for i, tab := range c.children {
 		var sty tcell.Style
 		if c.selected == i {
@@ -213,7 +213,7 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 		}
 
 		str := fmt.Sprintf(" %s ", name)
-		//DrawStr(s, c.x+c.width/2-len(str)/2, c.y, str, sty)
+
 		DrawStr(s, c.x+col, c.y, str, sty)
 		col += len(str) + 1 // Add one for spacing between tabs
 	}
