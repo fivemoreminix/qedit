@@ -382,6 +382,8 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 				var size int = 1 // Size of the rune (in bytes)
 				var selected bool // Whether this rune should be styled as selected
 
+				tabOffsetAtRuneIdx := t.getTabCountInLineAtCol(line, runeIdx) * (t.TabSize-1)
+
 				if byteIdx < len(lineBytes) { // If we are drawing part of the line contents...
 					r, size = utf8.DecodeRune(lineBytes[byteIdx:])
 
@@ -392,9 +394,6 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 					// Determine whether we select the current rune. Also only select runes within
 					// the line bytes range.
 					if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine { // If we're part of a selection...
-
-						tabOffsetAtRuneIdx := t.getTabCountInLineAtCol(line, runeIdx) * (t.TabSize-1)
-
 						if line == t.selection.StartLine { // If selection starts at this line...
 							if runeIdx-tabOffsetAtRuneIdx >= t.selection.StartCol { // And we're at or past the start col...
 								// If the start line is also the end line...
@@ -425,8 +424,8 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 					if lineHighlightDataIdx < len(lineHighlightData) { // Works for single-line highlights
 						data := lineHighlightData[lineHighlightDataIdx]
-						if runeIdx >= data.Col {
-							if runeIdx > data.EndCol { // Passed that highlight data
+						if runeIdx-tabOffsetAtRuneIdx >= data.Col {
+							if runeIdx-tabOffsetAtRuneIdx > data.EndCol { // Passed that highlight data
 								currentStyle = defaultStyle
 								lineHighlightDataIdx++ // Go to next one
 							} else { // Start coloring as this syntax style
