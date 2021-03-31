@@ -7,6 +7,7 @@ type Syntax uint8
 const (
 	Default Syntax = iota
 	Keyword
+	String
 	Special
 	Type
 	Number

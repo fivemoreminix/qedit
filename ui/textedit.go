@@ -95,13 +95,23 @@ loop:
 		Name: "Go",
 		Filetypes: []string{".go"},
 		Rules: map[*regexp.Regexp]buffer.Syntax {
-			regexp.MustCompile("(if|for|func|switch)"): buffer.Keyword,
+			regexp.MustCompile("\\/\\/.*"): buffer.Comment,
+			regexp.MustCompile("\".*\""): buffer.String,
+			regexp.MustCompile("\\b(var|if|else|range|for|switch|case|go|func|return|defer|import|package)\\b"): buffer.Keyword,
+			regexp.MustCompile("\\b(int|byte|string|bool)\\b"): buffer.Type,
+			regexp.MustCompile("\\b([1-9][0-9]*|0[0-7]*|0[Xx][0-9A-Fa-f]+|0[Bb][01]+)\\b"): buffer.Number,
+			regexp.MustCompile("\\b(len|cap|panic)\\b"): buffer.Builtin,
 		},
 	}
 
 	colorscheme := &buffer.Colorscheme {
 		buffer.Default: tcell.Style{}.Foreground(tcell.ColorLightGray).Background(tcell.ColorBlack),
-		buffer.Keyword: tcell.Style{}.Foreground(tcell.ColorBlue).Background(tcell.ColorBlack),
+		buffer.Comment: tcell.Style{}.Foreground(tcell.ColorGray).Background(tcell.ColorBlack),
+		buffer.String:  tcell.Style{}.Foreground(tcell.ColorOlive).Background(tcell.ColorBlack),
+		buffer.Keyword: tcell.Style{}.Foreground(tcell.ColorNavy).Background(tcell.ColorBlack),
+		buffer.Type:    tcell.Style{}.Foreground(tcell.ColorPurple).Background(tcell.ColorBlack),
+		buffer.Number:  tcell.Style{}.Foreground(tcell.ColorFuchsia).Background(tcell.ColorBlack),
+		buffer.Builtin: tcell.Style{}.Foreground(tcell.ColorBlue).Background(tcell.ColorBlack),
 	}
 
 	t.Highlighter = buffer.NewHighlighter(t.Buffer, lang, colorscheme)
