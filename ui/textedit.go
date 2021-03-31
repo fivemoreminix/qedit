@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"regexp"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/fivemoreminix/qedit/ui/buffer"
 	"github.com/gdamore/tcell/v2"
 )
@@ -333,72 +335,115 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 	columnWidth := t.getColumnWidth()
 	bufferLines := t.Buffer.Lines()
 
-	textEditStyle := t.Theme.GetOrDefault("TextEdit")
 	selectedStyle := t.Theme.GetOrDefault("TextEditSelected")
 	columnStyle := t.Theme.GetOrDefault("TextEditColumn")
 
-	DrawRect(s, t.x, t.y, t.width, t.height, ' ', textEditStyle) // Fill background
+	//DrawRect(s, t.x, t.y, t.width, t.height, ' ', textEditStyle) // Fill background
 
-	var tabStr string
+	var tabBytes []byte
 	if t.UseHardTabs {
-		// Only call strings.Repeat once for each draw in hard tab files
-		tabStr = strings.Repeat(" ", t.TabSize)
+		// Only call Repeat once for each draw in hard tab files
+		tabBytes = bytes.Repeat([]byte{' '}, t.TabSize)
 	}
+
+	defaultStyle := t.Highlighter.Colorscheme.GetStyle(buffer.Default)
+	currentStyle := defaultStyle
 
 	for lineY := t.y; lineY < t.y+t.height; lineY++ { // For each line we can draw...
 		line := lineY + t.scrolly - t.y // The line number being drawn (starts at zero)
 
-		lineNumStr := ""
+		lineNumStr := "" // Line number as a string
 
 		if line < bufferLines { // Only index buffer if we are within it...
-			lineNumStr = strconv.Itoa(line + 1) // Line number as a string
+			lineNumStr = strconv.Itoa(line + 1) // Only set for lines within the buffer (not view)
 
-			lineStr := string(t.Buffer.Line(line)) // Line to be drawn
+			var lineBytes []byte = t.Buffer.Line(line) // Line to be drawn
 			if t.UseHardTabs {
-				lineStr = strings.ReplaceAll(lineStr, "\t", tabStr)
+				lineBytes = bytes.ReplaceAll(lineBytes, []byte{'\t'}, tabBytes)
 			}
 
-			lineRunes := []rune(lineStr)
-			if len(lineRunes) >= t.scrollx { // If some of the line is visible at our horizontal scroll...
-				lineRunes = lineRunes[t.scrollx:] // Trim left side of string we cannot see
+			lineHighlightData := t.Highlighter.GetLine(line)
+			var lineHighlightDataIdx int
 
-				if len(lineRunes) >= t.width-columnWidth { // If that trimmed line continues out of view to the right...
-					lineRunes = lineRunes[:t.width-columnWidth] // Trim right side of string we cannot see
+			var byteIdx int      // Byte index of lineStr
+			// X offset we draw the next rune at (some runes can be 2 cols wide)
+			col := t.x + columnWidth
+			var runeIdx int      // Index into lineStr (as runes) we draw the next character at
+
+			// REWRITE OF SCROLL FUNC:
+			for runeIdx < t.scrollx && byteIdx < len(lineBytes) {
+				_, size := utf8.DecodeRune(lineBytes[byteIdx:]) // Respect UTF-8
+				byteIdx += size
+				runeIdx++
+			}
+
+			for col < t.x + t.width { // For each column in view...
+				var r rune = ' ' // Rune to draw this iteration
+				var size int = 1 // Size of the rune (in bytes)
+				var selected bool // Whether this rune should be styled as selected
+
+				if byteIdx < len(lineBytes) { // If we are drawing part of the line contents...
+					r, size = utf8.DecodeRune(lineBytes[byteIdx:])
+
+					if r == '\n' {
+						r = ' '
+					}
+
+					// Determine whether we select the current rune. Also only select runes within
+					// the line bytes range.
+					if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine { // If we're part of a selection...
+
+						tabOffsetAtRuneIdx := t.getTabCountInLineAtCol(line, runeIdx) * (t.TabSize-1)
+
+						if line == t.selection.StartLine { // If selection starts at this line...
+							if runeIdx-tabOffsetAtRuneIdx >= t.selection.StartCol { // And we're at or past the start col...
+								// If the start line is also the end line...
+								if line == t.selection.EndLine {
+									if runeIdx-tabOffsetAtRuneIdx <= t.selection.EndCol { // And we're before the end of that...
+										selected = true
+									}
+								} else { // Definitely highlight
+									selected = true
+								}
+							}
+						} else if line == t.selection.EndLine { // If selection ends at this line...
+							if runeIdx-tabOffsetAtRuneIdx <= t.selection.EndCol { // And we're at or before the end col...
+								selected = true
+							}
+						} else { // We're between the start and the end lines, definitely highlight.
+							selected = true
+						}
+					}
 				}
 
-				// If the current line is part of a selected region...
-				if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine {
-					selStartIdx := t.scrollx
-					if line == t.selection.StartLine { // If the selection begins somewhere in the line...
-						// Account for hard tabs
-						tabCount := t.getTabCountInLineAtCol(line, t.selection.StartCol)
-						selStartIdx = t.selection.StartCol + tabCount*(t.TabSize-1) - t.scrollx
-					}
-					selEndIdx := len(lineRunes) - t.scrollx - 1 // used inclusively
-					if line == t.selection.EndLine {        // If the selection ends somewhere in the line...
-						tabCount := t.getTabCountInLineAtCol(line, t.selection.EndCol)
-						selEndIdx = t.selection.EndCol + tabCount*(t.TabSize-1) - t.scrollx
-					}
+				// Determine the style of the rune we draw next:
 
-					// NOTE: a special draw function just for selections. Should combine this with ordinary draw
-					currentStyle := textEditStyle
-					for i := 0; i < t.width-columnWidth; i++ { // For each column we can draw
-						if i == selStartIdx {
-							currentStyle = selectedStyle // begin drawing selected
-						} else if i > selEndIdx {
-							currentStyle = textEditStyle // reset style
-						}
-
-						r := ' '                // Rune to draw
-						if i < len(lineRunes) { // While we're drawing the line
-							r = lineRunes[i]
-						}
-
-						s.SetContent(t.x+columnWidth+i, lineY, r, nil, currentStyle)
-					}
+				if selected {
+					currentStyle = selectedStyle
 				} else {
-					DrawStr(s, t.x+columnWidth, lineY, string(lineRunes), textEditStyle) // Draw line
+					currentStyle = defaultStyle
+
+					if lineHighlightDataIdx < len(lineHighlightData) { // Works for single-line highlights
+						data := lineHighlightData[lineHighlightDataIdx]
+						if runeIdx >= data.Col {
+							if runeIdx > data.EndCol { // Passed that highlight data
+								currentStyle = defaultStyle
+								lineHighlightDataIdx++ // Go to next one
+							} else { // Start coloring as this syntax style
+								currentStyle = t.Highlighter.Colorscheme.GetStyle(data.Syntax)
+							}
+						}
+					}
 				}
+
+				// Draw the rune
+				s.SetContent(col, lineY, r, nil, currentStyle)
+
+				col += runewidth.RuneWidth(r)
+
+				// Understanding the tab simulation is unnecessary; just know that it works.
+				byteIdx += size
+				runeIdx++
 			}
 		}
 
