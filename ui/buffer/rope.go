@@ -290,28 +290,33 @@ func (b *RopeBuffer) PosToLineCol(pos int) (int, int) {
 	var line, col int
 	var wasAtNewline bool
 
-	_rope := (*rope.Node)(b)
-	_rope.EachLeaf(func(n *rope.Node) bool {
+	if pos <= 0 {
+		return line, col
+	}
+
+	(*rope.Node)(b).EachLeaf(func(n *rope.Node) bool {
 		data := n.Value()
 		var i int
 		for i < len(data) {
-			if pos <= 0 {
-				return true
-			}
-
-			if data[i] == '\n' { // End of line
+			if wasAtNewline { // Start of line
+				if data[i] != '\n' { // If the start of this line does not happen to be a delim...
+					wasAtNewline = false // Say we weren't previously at a delimiter
+				}
+				line, col = line+1, 0
+			} else if data[i] == '\n' { // End of line
 				wasAtNewline = true
 				col++
-			} else if wasAtNewline { // Start of line
-				wasAtNewline = false
-				line, col = line+1, 0
 			} else {
-				col++ // Normal byte
+				col++
 			}
 
 			_, size := utf8.DecodeRune(data[i:])
 			i += size
 			pos -= size
+
+			if pos < 0 {
+				return true
+			}
 		}
 		return false
 	})

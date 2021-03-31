@@ -2,6 +2,49 @@ package buffer
 
 import "testing"
 
+func TestRopePosToLineCol(t *testing.T) {
+	var buf Buffer = NewRopeBuffer([]byte("line0\nline1\n\nline3\n"))
+	//line0
+	//line1
+	//
+	//line3
+	//
+
+	startLine, startCol := buf.PosToLineCol(0)
+	if startLine != 0 {
+		t.Errorf("Expected startLine == 0, got %v", startLine)
+		t.Fail()
+	}
+
+	if startCol != 0 {
+		t.Errorf("Expected startCol == 0, got %v", startCol)
+		t.Fail()
+	}
+
+	endPos := buf.Len()-1
+	endLine, endCol := buf.PosToLineCol(endPos)
+	t.Logf("endPos = %v", endPos)
+	if endLine != 3 {
+		t.Errorf("Expected endLine == 3, got %v", endLine)
+	}
+
+	if endCol != 5 {
+		t.Errorf("Expected endCol == 5, got %v", endCol)
+	}
+
+	line1Pos := 11 // Byte index of the delim separating line1 and line 2
+	line1Line, line1Col := buf.PosToLineCol(line1Pos)
+	if line1Line != 1 {
+		t.Errorf("Expected line1Line == 1, got %v", line1Line)
+		t.Fail()
+	}
+
+	if line1Col != 5 {
+		t.Errorf("Expected line1Col == 5, got %v", line1Col)
+		t.Fail()
+	}
+}
+
 func TestRopeInserting(t *testing.T) {
 	var buf Buffer = NewRopeBuffer([]byte("some"))
 	buf.Insert(0, 4, []byte(" text\n")) // Insert " text" after "some"
