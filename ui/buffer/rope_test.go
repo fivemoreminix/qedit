@@ -13,12 +13,10 @@ func TestRopePosToLineCol(t *testing.T) {
 	startLine, startCol := buf.PosToLineCol(0)
 	if startLine != 0 {
 		t.Errorf("Expected startLine == 0, got %v", startLine)
-		t.Fail()
 	}
 
 	if startCol != 0 {
 		t.Errorf("Expected startCol == 0, got %v", startCol)
-		t.Fail()
 	}
 
 	endPos := buf.Len()-1
@@ -36,12 +34,10 @@ func TestRopePosToLineCol(t *testing.T) {
 	line1Line, line1Col := buf.PosToLineCol(line1Pos)
 	if line1Line != 1 {
 		t.Errorf("Expected line1Line == 1, got %v", line1Line)
-		t.Fail()
 	}
 
 	if line1Col != 5 {
 		t.Errorf("Expected line1Col == 5, got %v", line1Col)
-		t.Fail()
 	}
 }
 
@@ -57,7 +53,6 @@ func TestRopeInserting(t *testing.T) {
 
 	if str := string(buf.Bytes()); str != "withtext\n" {
 		t.Errorf("string does not match \"withtext\", got %#v", str)
-		t.Fail()
 	}
 }
 
@@ -71,45 +66,37 @@ func TestRopeBounds(t *testing.T) {
 
 	if buf.Lines() != 5 {
 		t.Errorf("Expected buf.Lines() == 5")
-		t.Fail()
 	}
 
 	if len := buf.RunesInLine(1); len != 6 { // "is" in English and in japanese
 		t.Errorf("Expected 6 runes in line 2, found %v", len)
-		t.Fail()
 	}
 
 	if len := buf.RunesInLineWithDelim(4); len != 0 {
 		t.Errorf("Expected 0 runes in line 5, found %v", len)
-		t.Fail()
 	}
 
 	line, col := buf.ClampLineCol(15, 5) // Should become last line, first column
 	if line != 4 && col != 0 {
 		t.Errorf("Expected to clamp line col to 4,0 got %v,%v", line, col)
-		t.Fail()
 	}
 
 	line, col = buf.ClampLineCol(4, -1)
 	if line != 4 && col != 0 {
 		t.Errorf("Expected to clamp line col to 4,0 got %v,%v", line, col)
-		t.Fail()
 	}
 
 	line, col = buf.ClampLineCol(2, 5) // Should be third line, pointing at the newline char
 	if line != 2 && col != 5 {
 		t.Errorf("Expected to clamp line, col to 2,5 got %v,%v", line, col)
-		t.Fail()
 	}
 
 	if line := string(buf.Line(2)); line != "\tsome\n" {
 		t.Errorf("Expected line 3 to equal \"\\tsome\", got %#v", line)
-		t.Fail()
 	}
 
 	if line := string(buf.Line(4)); line != "" {
 		t.Errorf("Got %#v", line)
-		t.Fail()
 	}
 }
 
@@ -119,12 +106,10 @@ func TestRopeCount(t *testing.T) {
 	tabsAtOf := buf.Count(0, 0, 0, 7, []byte{'\t'})
 	if tabsAtOf != 2 {
 		t.Errorf("Expected 2 tabs before 'of', got %#v", tabsAtOf)
-		t.Fail()
 	}
 
 	tabs := buf.Count(0, 0, 0, 0, []byte{'\t'})
 	if tabs != 0 {
 		t.Errorf("Expected no tabs at column zero, got %v", tabs)
-		t.Fail()
 	}
 }
