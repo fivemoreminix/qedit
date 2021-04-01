@@ -113,3 +113,17 @@ func TestRopeCount(t *testing.T) {
 		t.Errorf("Expected no tabs at column zero, got %v", tabs)
 	}
 }
+
+func TestRopeSlice(t *testing.T) {
+	var buf Buffer = NewRopeBuffer([]byte("abc\ndef\n"))
+
+	wholeSlice := buf.Slice(0, 0, 2, 0) // Position points to after the newline char
+	if string(wholeSlice) != "abc\ndef\n" {
+		t.Errorf("Whole slice was not equal, got \"%s\"", wholeSlice)
+	}
+
+	secondLine := buf.Slice(1, 0, 1, 3)
+	if string(secondLine) != "def\n" {
+		t.Errorf("Second line and slice were not equal, got \"%s\"", secondLine)
+	}
+}
