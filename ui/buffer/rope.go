@@ -13,11 +13,12 @@ func NewRopeBuffer(contents []byte) *RopeBuffer {
 	return (*RopeBuffer)(rope.New(contents))
 }
 
-// Returns the index of the byte at line, col. If line is less than zero, or more
-// than the number of available lines, the function will panic. If col is less than
-// zero, the function will panic. If col is greater than the length of the line,
-// the position of the last byte of the line is returned, instead.
-func (b *RopeBuffer) pos(line, col int) int {
+// LineColToPos returns the index of the byte at line, col. If line is less than
+// zero, or more than the number of available lines, the function will panic. If
+// col is less than zero, the function will panic. If col is greater than the
+// length of the line, the position of the last byte of the line is returned,
+// instead.
+func (b *RopeBuffer) LineColToPos(line, col int) int {
 	var pos int
 
 	_rope := (*rope.Node)(b)
@@ -96,11 +97,11 @@ func (b *RopeBuffer) Line(line int) []byte {
 // inclusive bounds. The returned value may or may not be a copy of the data,
 // so do not write to it.
 func (b *RopeBuffer) Slice(startLine, startCol, endLine, endCol int) []byte {
-	endPos := b.pos(endLine, endCol)+1
+	endPos := b.LineColToPos(endLine, endCol)+1
 	if length := (*rope.Node)(b).Len(); endPos >= length {
 		endPos = length-1
 	}
-	return (*rope.Node)(b).Slice(b.pos(startLine, startCol), endPos)
+	return (*rope.Node)(b).Slice(b.LineColToPos(startLine, startCol), endPos)
 }
 
 // Bytes returns all of the bytes in the buffer. This function is very likely
@@ -112,14 +113,14 @@ func (b *RopeBuffer) Bytes() []byte {
 
 // Insert copies a byte slice (inserting it) into the position at line, col.
 func (b *RopeBuffer) Insert(line, col int, value []byte) {
-	(*rope.Node)(b).Insert(b.pos(line, col), value)
+	(*rope.Node)(b).Insert(b.LineColToPos(line, col), value)
 }
 
 // Remove deletes any characters between startLine, startCol, and endLine,
 // endCol, inclusive bounds.
 func (b *RopeBuffer) Remove(startLine, startCol, endLine, endCol int) {
-	start := b.pos(startLine, startCol)
-	end := b.pos(endLine, endCol) + 1
+	start := b.LineColToPos(startLine, startCol)
+	end := b.LineColToPos(endLine, endCol) + 1
 
 	if len := (*rope.Node)(b).Len(); end >= len {
 		end = len
@@ -134,8 +135,8 @@ func (b *RopeBuffer) Remove(startLine, startCol, endLine, endCol int) {
 // Returns the number of occurrences of 'sequence' in the buffer, within the range
 // of start line and col, to end line and col. End is exclusive.
 func (b *RopeBuffer) Count(startLine, startCol, endLine, endCol int, sequence []byte) int {
-	startPos := b.pos(startLine, startCol)
-	endPos := b.pos(endLine, endCol)
+	startPos := b.LineColToPos(startLine, startCol)
+	endPos := b.LineColToPos(endLine, endCol)
 	return (*rope.Node)(b).Count(startPos, endPos, sequence)
 }
 

@@ -62,6 +62,14 @@ type Buffer interface {
 	// the last rune before the line delimiter.
 	ClampLineCol(line, col int) (int, int)
 
+
+	// LineColToPos returns the index of the byte at line, col. If line is less than
+	// zero, or more than the number of available lines, the function will panic. If
+	// col is less than zero, the function will panic. If col is greater than the
+	// length of the line, the position of the last byte of the line is returned,
+	// instead.
+	LineColToPos(line, col int) int
+
 	// PosToLineCol converts a byte offset (position) of the buffer's bytes, into
 	// a line and column. Unless you are working with the Bytes() function, this
 	// is unlikely to be useful to you. Position will be clamped.

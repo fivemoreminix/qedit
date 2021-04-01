@@ -81,21 +81,29 @@ func (h *Highlighter) UpdateLines(startLine, endLine int) {
 	}
 
 	// If the rule k does not have an End, then it can be optimized that we search from the start
-	// of view until the end of view. For any k that has an End, we search for starts from start
-	// of buffer, until end of view.
+	// of view until the end of view. For any k that has an End, we search for ends from start
+	// of view, backtracking when one is found, to fulfill a multiline highlight.
 
 	endLine, endCol := h.Buffer.ClampLineCol(endLine, (h.Buffer).RunesInLineWithDelim(endLine)-1)
-	bytes := (h.Buffer).Slice(0, 0, endLine, endCol) // Allocates size of the buffer	
+	startPos := h.Buffer.LineColToPos(startLine, 0)
+	bytes := h.Buffer.Slice(startLine, 0, endLine, endCol)
 
 	for k, v := range h.Language.Rules {
-		indexes := k.Start.FindAllIndex(bytes, -1) // Attempt to find the start match
+		var indexes [][]int // [][2]int
+		if k.End != nil && k.End.String() != "$" { // If this range might be a multiline range...
+			endIndexes := k.End.FindAllIndex(bytes, -1) // Attempt to find every ending match
+			startIndexes := k.Start.FindAllIndex(bytes, -1) // Attempt to find every starting match
+			// ...
+			_ = endIndexes
+			_ = startIndexes
+		} else { // A standard single-line match
+			indexes = k.Start.FindAllIndex(bytes, -1) // Attempt to find the start match
+		}
+
 		if indexes != nil {
 			for i := range indexes {
-//				if k.End != nil && k.End.String() != "$" { // If this match has a defined end...
-//				}
-				endPos := indexes[i][1] - 1
-				startLine, startCol := h.Buffer.PosToLineCol(indexes[i][0])
-				endLine, endCol := h.Buffer.PosToLineCol(endPos)
+				startLine, startCol := h.Buffer.PosToLineCol(indexes[i][0] + startPos)
+				endLine, endCol := h.Buffer.PosToLineCol(indexes[i][1]-1 + startPos)
 
 				match := Match { startCol, endLine, endCol, v }
 
