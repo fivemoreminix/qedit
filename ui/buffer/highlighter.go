@@ -67,13 +67,21 @@ func NewHighlighter(buffer Buffer, lang *Language, colorscheme *Colorscheme) *Hi
 	}
 }
 
+func (h *Highlighter) expandToBufferLines() {
+	if lines := h.Buffer.Lines(); len(h.lineMatches) < lines {
+		h.lineMatches = append(h.lineMatches, make([][]Match, lines-len(h.lineMatches))...) // Extend from Slice Tricks
+	}
+}
+
 // UpdateLines forces the highlighting matches for lines between startLine to
 // endLine, inclusively, to be updated. It is more efficient to mark lines as
 // invalidated when changes occur and call UpdateInvalidatedLines(...).
 func (h *Highlighter) UpdateLines(startLine, endLine int) {
-	if lines := h.Buffer.Lines(); len(h.lineMatches) < lines {
-		h.lineMatches = append(h.lineMatches, make([][]Match, lines)...) // Extend
-	}
+	h.expandToBufferLines()
+	h.updateLines(startLine, endLine)
+}
+
+func (h *Highlighter) updateLines(startLine, endLine int) {
 	for i := startLine; i <= endLine && i < len(h.lineMatches); i++ {
 		if h.lineMatches[i] != nil {
 			h.lineMatches[i] = h.lineMatches[i][:0] // Shrink slice to zero (hopefully save allocs)
@@ -118,12 +126,19 @@ func (h *Highlighter) UpdateLines(startLine, endLine int) {
 // UpdateInvalidatedLines only updates the highlighting for lines that are invalidated
 // between lines startLine and endLine, inclusively.
 func (h *Highlighter) UpdateInvalidatedLines(startLine, endLine int) {
+	h.expandToBufferLines()
+
 	// Move startLine to first line with invalidated changes
 	for startLine <= endLine && startLine < len(h.lineMatches)-1 {
 		if h.lineMatches[startLine] == nil {
 			break
 		}
 		startLine++
+	}
+
+	// Keep endLine clamped
+	if endLine >= len(h.lineMatches) {
+		endLine = len(h.lineMatches)-1
 	}
 
 	// Move endLine back to first line at or before endLine with invalidated changes
@@ -138,10 +153,11 @@ func (h *Highlighter) UpdateInvalidatedLines(startLine, endLine int) {
 		return // Do nothing; no invalidated lines
 	}
 
-	h.UpdateLines(startLine, endLine)
+	h.updateLines(startLine, endLine)
 }
 
 func (h *Highlighter) HasInvalidatedLines(startLine, endLine int) bool {
+	h.expandToBufferLines()
 	for i := startLine; i <= endLine && i < len(h.lineMatches); i++ {
 		if h.lineMatches[i] == nil {
 			return true
@@ -159,6 +175,7 @@ func (h *Highlighter) validateLines(startLine, endLine int) {
 }
 
 func (h *Highlighter) InvalidateLines(startLine, endLine int) {
+	h.expandToBufferLines()
 	for i := startLine; i <= endLine && i < len(h.lineMatches); i++ {
 		h.lineMatches[i] = nil
 	}
