@@ -3,3 +3,5 @@ qedit*
 
 # Unblock screenshots
 !screenshots/*
+
+*.prof

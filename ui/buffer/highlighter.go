@@ -1,6 +1,7 @@
 package buffer
 
 import (
+	"regexp"
 	"sort"
 
 	"github.com/gdamore/tcell/v2"
@@ -25,15 +26,23 @@ func (c *Colorscheme) GetStyle(s Syntax) tcell.Style {
 	return tcell.StyleDefault; // No value for Default; use default style.
 }
 
-type SyntaxData struct {
+type RegexpRegion struct {
+	Start    *regexp.Regexp
+	End      *regexp.Regexp // Should be "$" by default
+	Skip     *regexp.Regexp // Optional
+	Error    *regexp.Regexp // Optional
+	Specials []*regexp.Regexp // Optional (nil or zero len)
+}
+
+type Match struct {
 	Col     int
-	EndLine int
-	EndCol  int
+	EndLine int // Inclusive
+	EndCol  int // Inclusive
 	Syntax  Syntax
 }
 
-// ByCol implements sort.Interface for []SyntaxData based on the Col field.
-type ByCol []SyntaxData
+// ByCol implements sort.Interface for []Match based on the Col field.
+type ByCol []Match
 
 func (c ByCol) Len() int           { return len(c) }
 func (c ByCol) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
@@ -46,7 +55,7 @@ type Highlighter struct {
 	Language    *Language
 	Colorscheme *Colorscheme
 
-	lineData [][]SyntaxData
+	lineMatches [][]Match
 }
 
 func NewHighlighter(buffer Buffer, lang *Language, colorscheme *Colorscheme) *Highlighter {
@@ -54,50 +63,108 @@ func NewHighlighter(buffer Buffer, lang *Language, colorscheme *Colorscheme) *Hi
 		buffer,
 		lang,
 		colorscheme,
-		make([][]SyntaxData, buffer.Lines()),
+		make([][]Match, buffer.Lines()),
 	}
 }
 
-func (h *Highlighter) Update() {
-	if lines := h.Buffer.Lines(); len(h.lineData) < lines {
-		h.lineData = append(h.lineData, make([][]SyntaxData, lines)...) // Extend
+// UpdateLines forces the highlighting matches for lines between startLine to
+// endLine, inclusively, to be updated. It is more efficient to mark lines as
+// invalidated when changes occur and call UpdateInvalidatedLines(...).
+func (h *Highlighter) UpdateLines(startLine, endLine int) {
+	if lines := h.Buffer.Lines(); len(h.lineMatches) < lines {
+		h.lineMatches = append(h.lineMatches, make([][]Match, lines)...) // Extend
 	}
-	for i := range h.lineData { // Invalidate all line data
-		h.lineData[i] = nil
+	for i := startLine; i <= endLine && i < len(h.lineMatches); i++ {
+		if h.lineMatches[i] != nil {
+			h.lineMatches[i] = h.lineMatches[i][:0] // Shrink slice to zero (hopefully save allocs)
+		}
 	}
 
-	// For each compiled syntax regex:
-	//   Use FindAllIndex to get all instances of a single match, then for each match found:
-	//     use Find to get the bytes of the match and get the length. Calculate to what line
-	//     and column the bytes span and its syntax. Append a SyntaxData to the output.
+	// If the rule k does not have an End, then it can be optimized that we search from the start
+	// of view until the end of view. For any k that has an End, we search for starts from start
+	// of buffer, until end of view.
 
-	bytes := (h.Buffer).Bytes() // Allocates size of the buffer	
+	endLine, endCol := h.Buffer.ClampLineCol(endLine, (h.Buffer).RunesInLineWithDelim(endLine)-1)
+	bytes := (h.Buffer).Slice(0, 0, endLine, endCol) // Allocates size of the buffer	
 
 	for k, v := range h.Language.Rules {
-		indexes := k.FindAllIndex(bytes, -1)
+		indexes := k.Start.FindAllIndex(bytes, -1) // Attempt to find the start match
 		if indexes != nil {
 			for i := range indexes {
+//				if k.End != nil && k.End.String() != "$" { // If this match has a defined end...
+//				}
 				endPos := indexes[i][1] - 1
 				startLine, startCol := h.Buffer.PosToLineCol(indexes[i][0])
 				endLine, endCol := h.Buffer.PosToLineCol(endPos)
 
-				syntaxData := SyntaxData { startCol, endLine, endCol, v }
+				match := Match { startCol, endLine, endCol, v }
 
-				h.lineData[startLine] = append(h.lineData[startLine], syntaxData) // Not sorted
+				h.lineMatches[startLine] = append(h.lineMatches[startLine], match) // Unsorted
 			}
+		}
+	}
+
+	h.validateLines(startLine, endLine) // Marks any "unvalidated" or nil lines as valued
+}
+
+// UpdateInvalidatedLines only updates the highlighting for lines that are invalidated
+// between lines startLine and endLine, inclusively.
+func (h *Highlighter) UpdateInvalidatedLines(startLine, endLine int) {
+	// Move startLine to first line with invalidated changes
+	for startLine <= endLine && startLine < len(h.lineMatches)-1 {
+		if h.lineMatches[startLine] == nil {
+			break
+		}
+		startLine++
+	}
+
+	// Move endLine back to first line at or before endLine with invalidated changes
+	for endLine >= startLine && endLine > 0 {
+		if h.lineMatches[endLine] == nil {
+			break
+		}
+		endLine--
+	}
+
+	if startLine > endLine {
+		return // Do nothing; no invalidated lines
+	}
+
+	h.UpdateLines(startLine, endLine)
+}
+
+func (h *Highlighter) HasInvalidatedLines(startLine, endLine int) bool {
+	for i := startLine; i <= endLine && i < len(h.lineMatches); i++ {
+		if h.lineMatches[i] == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Highlighter) validateLines(startLine, endLine int) {
+	for i := startLine; i <= endLine && i < len(h.lineMatches); i++ {
+		if h.lineMatches[i] == nil {
+			h.lineMatches[i] = make([]Match, 0)
 		}
 	}
 }
 
-func (h *Highlighter) GetLine(line int) []SyntaxData {
-	if line < 0 || line >= len(h.lineData) {
+func (h *Highlighter) InvalidateLines(startLine, endLine int) {
+	for i := startLine; i <= endLine && i < len(h.lineMatches); i++ {
+		h.lineMatches[i] = nil
+	}
+}
+
+func (h *Highlighter) GetLineMatches(line int) []Match {
+	if line < 0 || line >= len(h.lineMatches) {
 		return nil
 	}
-	data := h.lineData[line]
+	data := h.lineMatches[line]
 	sort.Sort(ByCol(data))
 	return data
 }
 
-func (h *Highlighter) GetStyle(syn SyntaxData) tcell.Style {
-	return h.Colorscheme.GetStyle(syn.Syntax)
+func (h *Highlighter) GetStyle(match Match) tcell.Style {
+	return h.Colorscheme.GetStyle(match.Syntax)
 }

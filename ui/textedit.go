@@ -94,13 +94,21 @@ loop:
 	lang := &buffer.Language {
 		Name: "Go",
 		Filetypes: []string{".go"},
-		Rules: map[*regexp.Regexp]buffer.Syntax {
-			regexp.MustCompile("\\/\\/.*"): buffer.Comment,
-			regexp.MustCompile("\".*\""): buffer.String,
-			regexp.MustCompile("\\b(var|if|else|range|for|switch|case|go|func|return|defer|import|package)\\b"): buffer.Keyword,
-			regexp.MustCompile("\\b(int|byte|string|bool)\\b"): buffer.Type,
-			regexp.MustCompile("\\b([1-9][0-9]*|0[0-7]*|0[Xx][0-9A-Fa-f]+|0[Bb][01]+)\\b"): buffer.Number,
-			regexp.MustCompile("\\b(len|cap|panic)\\b"): buffer.Builtin,
+		Rules: map[*buffer.RegexpRegion]buffer.Syntax {
+			&buffer.RegexpRegion{Start: regexp.MustCompile("\\/\\/.*")}: buffer.Comment,
+			&buffer.RegexpRegion{Start: regexp.MustCompile("\".*\"")}: buffer.String,
+			&buffer.RegexpRegion{
+				Start: regexp.MustCompile("\\b(var|const|if|else|range|for|switch|case|go|func|return|defer|import|type|package)\\b"),
+			}: buffer.Keyword,
+			&buffer.RegexpRegion{
+				Start: regexp.MustCompile("\\b(int|byte|string|bool|struct)\\b"),
+			}: buffer.Type,
+			&buffer.RegexpRegion{
+				Start: regexp.MustCompile("\\b([1-9][0-9]*|0[0-7]*|0[Xx][0-9A-Fa-f]+|0[Bb][01]+)\\b"),
+			}: buffer.Number,
+			&buffer.RegexpRegion{
+				Start: regexp.MustCompile("\\b(len|cap|panic)\\b"),
+			}: buffer.Builtin,
 		},
 	}
 
@@ -115,7 +123,6 @@ loop:
 	}
 
 	t.Highlighter = buffer.NewHighlighter(t.Buffer, lang, colorscheme)
-	t.Highlighter.Update()
 }
 
 // GetLineDelimiter returns "\r\n" for a CRLF buffer, or "\n" for an LF buffer.
@@ -144,6 +151,9 @@ func (t *TextEdit) ChangeLineDelimiters(crlf bool) {
 func (t *TextEdit) Delete(forwards bool) {
 	t.Dirty = true
 
+	var deletedLine bool // Whether any whole line has been deleted (changing the # of lines)
+	startingLine := t.cury
+
 	if t.selectMode { // If text is selected, delete the whole selection
 		t.selectMode = false // Disable selection and prevent infinite loop
 
@@ -151,20 +161,33 @@ func (t *TextEdit) Delete(forwards bool) {
 		t.Buffer.Remove(t.selection.StartLine, t.selection.StartCol, t.selection.EndLine, t.selection.EndCol)
 		t.SetLineCol(t.selection.StartLine, t.selection.StartCol) // Set cursor to start of region
 
-		return
+		deletedLine = t.selection.StartLine != t.selection.EndLine
+	} else { // Not deleting selection
+		if forwards { // Delete the character after the cursor
+			// If the cursor is not at the end of the last line...
+			if t.cury < t.Buffer.Lines()-1 || t.curx < t.Buffer.RunesInLine(t.cury) {
+				bytes := t.Buffer.Slice(t.cury, t.curx, t.cury, t.curx) // Get the character at cursor
+				deletedLine = bytes[0] == '\n'
+
+				t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
+			}
+		} else { // Delete the character before the cursor
+			// If the cursor is not at the first column of the first line...
+			if t.cury > 0 || t.curx > 0 {
+				t.CursorLeft() // Back up to that character
+
+				bytes := t.Buffer.Slice(t.cury, t.curx, t.cury, t.curx) // Get the char at cursor
+				deletedLine = bytes[0] == '\n'
+
+				t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
+			}
+		}
 	}
 
-	if forwards { // Delete the character after the cursor
-		// If the cursor is not at the end of the last line...
-		if t.cury < t.Buffer.Lines()-1 || t.curx < t.Buffer.RunesInLine(t.cury) {
-			t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
-		}
-	} else { // Delete the character before the cursor
-		// If the cursor is not at the first column of the first line...
-		if t.cury > 0 || t.curx > 0 {
-			t.CursorLeft() // Back up to that character
-			t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
-		}
+	if deletedLine {
+		t.Highlighter.InvalidateLines(startingLine, t.Buffer.Lines()-1)
+	} else {
+		t.Highlighter.InvalidateLines(startingLine, startingLine)
 	}
 }
 
@@ -178,6 +201,9 @@ func (t *TextEdit) Insert(contents string) {
 		t.Delete(true) // The parameter doesn't matter with selection
 	}
 
+	var lineInserted bool // True if contents contains a '\n'
+	startingLine := t.cury
+
 	runes := []rune(contents)
 	for i := 0; i < len(runes); i++ {
 		ch := runes[i]
@@ -188,10 +214,12 @@ func (t *TextEdit) Insert(contents string) {
 				i++ // Consume '\n' after
 				t.Buffer.Insert(t.cury, t.curx, []byte{'\n'})
 				t.SetLineCol(t.cury+1, 0) // Go to the start of that new line
+				lineInserted = true
 			}
 		case '\n':
 			t.Buffer.Insert(t.cury, t.curx, []byte{'\n'})
 			t.SetLineCol(t.cury+1, 0) // Go to the start of that new line
+			lineInserted = true
 		case '\b':
 			t.Delete(false) // Delete the character before the cursor
 		case '\t':
@@ -210,6 +238,12 @@ func (t *TextEdit) Insert(contents string) {
 		}
 	}
 	t.prevCurCol = t.curx
+
+	if lineInserted {
+		t.Highlighter.InvalidateLines(startingLine, t.Buffer.Lines()-1)
+	} else {
+		t.Highlighter.InvalidateLines(startingLine, startingLine)
+	}
 }
 
 // getTabCountInLineAtCol returns tabs in the given line, before the column position,
@@ -348,7 +382,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 	selectedStyle := t.Theme.GetOrDefault("TextEditSelected")
 	columnStyle := t.Theme.GetOrDefault("TextEditColumn")
 
-	//DrawRect(s, t.x, t.y, t.width, t.height, ' ', textEditStyle) // Fill background
+	t.Highlighter.UpdateInvalidatedLines(t.scrolly, t.scrolly + (t.height-1))
 
 	var tabBytes []byte
 	if t.UseHardTabs {
@@ -368,11 +402,22 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 			lineNumStr = strconv.Itoa(line + 1) // Only set for lines within the buffer (not view)
 
 			var lineBytes []byte = t.Buffer.Line(line) // Line to be drawn
+			var lineTabs  [128]int // Rune index for each hard tab '\t' in lineBytes
+			var tabs      int // Length of lineTabs (number of hard tabs)
 			if t.UseHardTabs {
+				var i int
+				for i < len(lineBytes) {
+					r, size := utf8.DecodeRune(lineBytes[i:])
+					if r == '\t' {
+						lineTabs[tabs] = i
+						tabs++
+					}
+					i += size
+				}
 				lineBytes = bytes.ReplaceAll(lineBytes, []byte{'\t'}, tabBytes)
 			}
 
-			lineHighlightData := t.Highlighter.GetLine(line)
+			lineHighlightData := t.Highlighter.GetLineMatches(line)
 			var lineHighlightDataIdx int
 
 			var byteIdx int      // Byte index of lineStr
@@ -387,12 +432,23 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 				runeIdx++
 			}
 
+			tabOffsetAtRuneIdx := func(idx int) int {
+				var count int
+				for i := range lineTabs {
+					if i >= tabs || lineTabs[i] >= idx {
+						break
+					}
+					count++
+				}
+				return count * (t.TabSize - 1)
+			}
+
 			for col < t.x + t.width { // For each column in view...
 				var r rune = ' ' // Rune to draw this iteration
 				var size int = 1 // Size of the rune (in bytes)
 				var selected bool // Whether this rune should be styled as selected
 
-				tabOffsetAtRuneIdx := t.getTabCountInLineAtCol(line, runeIdx) * (t.TabSize-1)
+				tabOffsetAtRuneIdx := tabOffsetAtRuneIdx(runeIdx)
 
 				if byteIdx < len(lineBytes) { // If we are drawing part of the line contents...
 					r, size = utf8.DecodeRune(lineBytes[byteIdx:])

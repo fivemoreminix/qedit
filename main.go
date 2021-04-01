@@ -2,13 +2,22 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
+	"log"
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/fivemoreminix/qedit/ui"
 	"github.com/gdamore/tcell/v2"
+)
+
+var (
+	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
+	memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 )
 
 var theme = ui.Theme{
@@ -32,6 +41,19 @@ func changeFocus(to ui.Component) {
 }
 
 func main() {
+	flag.Parse()
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal("Could not create CPU profile: ", err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("Could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
 	s, e := tcell.NewScreen()
 	if e != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", e)
@@ -43,6 +65,7 @@ func main() {
 	}
 	defer s.Fini() // Useful for handling panics
 
+	var closing bool
 	sizex, sizey := s.Size()
 
 	tabContainer = ui.NewTabContainer(&theme)
@@ -57,6 +80,11 @@ func main() {
 	// Open files from command-line arguments
 	if len(os.Args) > 1 {
 		for i := 1; i < len(os.Args); i++ {
+			if os.Args[i] == "-cpuprofile" || os.Args[i] == "-memprofile" {
+				i++
+				continue
+			}
+
 			_, err := os.Stat(os.Args[i])
 
 			var dirty bool
@@ -167,8 +195,7 @@ func main() {
 		if tabContainer.GetTabCount() > 0 {
 			tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
 		} else { // No tabs open; close the editor
-			s.Fini()
-			os.Exit(0)
+			closing = true
 		}
 	}}})
 
@@ -254,7 +281,7 @@ func main() {
 
 	changeFocus(tabContainer) // TabContainer is focused by default
 
-	for {
+	for !closing {
 		s.Clear()
 
 		// Draw background (grey and black checkerboard)
@@ -330,6 +357,18 @@ func main() {
 			}
 
 			focusedComponent.HandleEvent(ev)
+		}
+	}
+
+	if *memprofile != "" {
+		f, err := os.Create(*memprofile)
+		if err != nil {
+			log.Fatal("Could not create memory profile: ", err)
+		}
+		defer f.Close()
+		runtime.GC() // Get updated statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("Could not write memory profile: ", err)
 		}
 	}
 }

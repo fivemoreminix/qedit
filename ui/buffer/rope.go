@@ -96,7 +96,11 @@ func (b *RopeBuffer) Line(line int) []byte {
 // inclusive bounds. The returned value may or may not be a copy of the data,
 // so do not write to it.
 func (b *RopeBuffer) Slice(startLine, startCol, endLine, endCol int) []byte {
-	return (*rope.Node)(b).Slice(b.pos(startLine, startCol), b.pos(endLine, endCol)+1)
+	endPos := b.pos(endLine, endCol)+1
+	if length := (*rope.Node)(b).Len(); endPos >= length {
+		endPos = length-1
+	}
+	return (*rope.Node)(b).Slice(b.pos(startLine, startCol), endPos)
 }
 
 // Bytes returns all of the bytes in the buffer. This function is very likely

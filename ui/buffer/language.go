@@ -1,7 +1,5 @@
 package buffer
 
-import "regexp"
-
 type Syntax uint8
 
 const (
@@ -19,6 +17,6 @@ const (
 type Language struct {
 	Name      string
 	Filetypes []string // .go, .c, etc.
-	Rules     map[*regexp.Regexp]Syntax
+	Rules     map[*RegexpRegion]Syntax
 	// TODO: add other language details
 }
