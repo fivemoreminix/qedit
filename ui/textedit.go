@@ -96,7 +96,7 @@ loop:
 		Filetypes: []string{".go"},
 		Rules: map[*buffer.RegexpRegion]buffer.Syntax {
 			&buffer.RegexpRegion{Start: regexp.MustCompile("\\/\\/.*")}: buffer.Comment,
-			&buffer.RegexpRegion{Start: regexp.MustCompile("\".*\"")}: buffer.String,
+			&buffer.RegexpRegion{Start: regexp.MustCompile("\".*?\"")}: buffer.String,
 			&buffer.RegexpRegion{
 				Start: regexp.MustCompile("\\b(var|const|if|else|range|for|switch|case|go|func|return|defer|import|type|package)\\b"),
 			}: buffer.Keyword,
