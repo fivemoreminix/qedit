@@ -10,7 +10,7 @@ import (
 //
 // Many components implement their own `New...()` function. In those constructor
 // functions, it is good practice for that component to set its size to be its
-// minimum size. TODO: implement that behavior
+// minimum size.
 type Component interface {
 	// A component knows its position and size, which is used to draw itself in
 	// its bounding rectangle.
