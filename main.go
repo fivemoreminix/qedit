@@ -111,6 +111,43 @@ func main() {
 		}
 	}
 
+	saveAs := func() {
+		callback := func(filePaths []string) {
+			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
+			te := tab.Child.(*ui.TextEdit)
+
+			// If we got the callback, it is safe to assume there are one or more files
+			f, err := os.OpenFile(filePaths[0], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.ModePerm)
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+
+			_, err = te.Buffer.WriteTo(f)
+			if err != nil {
+				panic(fmt.Sprint("Error occurred while writing buffer to file: ", err))
+			}
+			te.Dirty = false
+
+			dialog = nil // Hide the file selector
+			changeFocus(tabContainer)
+			tab.Name = filePaths[0]
+		}
+
+		dialog = ui.NewFileSelectorDialog(
+			&s,
+			"Select a file to overwrite",
+			false,
+			&theme,
+			callback,
+			func() { // Dialog canceled
+				dialog = nil
+				changeFocus(tabContainer)
+			},
+		)
+		changeFocus(dialog)
+	}
+
 	menuBar = ui.NewMenuBar(&theme)
 
 	fileMenu := ui.NewMenu("File", 0, &theme)
@@ -118,6 +155,9 @@ func main() {
 	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New File", Shortcut: "Ctrl+N", Callback: func() {
 		textEdit := ui.NewTextEdit(&s, "", []byte{}, &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
+
+		changeFocus(tabContainer)
+		tabContainer.FocusTab(tabContainer.GetTabCount()-1)
 	}}, &ui.ItemEntry{Name: "Open...", Shortcut: "Ctrl+O", Callback: func() {
 		callback := func(filePaths []string) {
 			for _, path := range filePaths {
@@ -156,7 +196,7 @@ func main() {
 		if tabContainer.GetTabCount() > 0 {
 			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := tab.Child.(*ui.TextEdit)
-			if len(te.FilePath) > 0 {
+			if te.FilePath != "" {
 				f, err := os.OpenFile(te.FilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.ModePerm)
 				if err != nil {
 					panic(err)
@@ -165,33 +205,17 @@ func main() {
 
 				_, err = te.Buffer.WriteTo(f) // TODO: check count
 				if err != nil {
-					panic(fmt.Sprintf("Error occurred while writing buffer to file: %v", err))
+					panic(fmt.Sprint("Error occurred while writing buffer to file: ", err))
 				}
-
 				te.Dirty = false
-			}
-			changeFocus(tabContainer)
-		}
-	}}, &ui.ItemEntry{Name: "Save As...", QuickChar: 5, Callback: func() {
-		// TODO: implement a "Save as" dialog system, and show that when trying to save noname files
-		callback := func(filePaths []string) {
-			dialog = nil // Hide the file selector
-			changeFocus(tabContainer)
-		}
 
-		dialog = ui.NewFileSelectorDialog(
-			&s,
-			"Select a file to overwrite",
-			false,
-			&theme,
-			callback,
-			func() { // Dialog canceled
-				dialog = nil
 				changeFocus(tabContainer)
-			},
-		)
-		changeFocus(dialog)
-	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Close", Shortcut: "Ctrl+Q", Callback: func() {
+			} else {
+				saveAs()
+			}
+		}
+	}}, &ui.ItemEntry{Name: "Save As...", QuickChar: 5, Callback: saveAs}, &ui.ItemSeparator{},
+	&ui.ItemEntry{Name: "Close", Shortcut: "Ctrl+Q", Callback: func() {
 		if tabContainer.GetTabCount() > 0 {
 			tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
 		} else { // No tabs open; close the editor
