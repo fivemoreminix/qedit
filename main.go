@@ -287,11 +287,11 @@ func main() {
 			bytes := te.GetSelectedBytes()
 			var err error
 			if len(bytes) > 0 { // If something is selected...
-				te.Delete(false) // Delete the selection				
 				err = ClipWrite(string(bytes)) // Add the selectedStr to clipboard
 				if err != nil {
 					showErrorDialog("Clipboard Failure", fmt.Sprintf("%v", err), nil)
 				}
+				te.Delete(false) // Delete selection
 			}
 			if err == nil { // Prevent hiding error dialog
 				changeFocus(tabContainer)
