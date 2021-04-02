@@ -18,9 +18,19 @@ func DrawRect(s tcell.Screen, x, y, width, height int, char rune, style tcell.St
 
 // DrawStr will render each character of a string at `x` and `y`.
 func DrawStr(s tcell.Screen, x, y int, str string, style tcell.Style) {
-	runes := []rune(str)
-	for idx, r := range runes {
-		s.SetContent(x+idx, y, r, nil, style)
+	var col int
+	bytes := []byte(str)
+	var i int
+	for i < len(bytes) {
+		r, size := utf8.DecodeRune(bytes[i:])
+		if r == '\n' {
+			col = 0
+			y++
+		} else {
+			s.SetContent(x+col, y, r, nil, style)
+		}
+		i += size
+		col++
 	}
 }
 
