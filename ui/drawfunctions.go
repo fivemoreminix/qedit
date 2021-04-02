@@ -74,5 +74,15 @@ func DrawRectOutlineDefault(s tcell.Screen, x, y, width, height int, style tcell
 	DrawRectOutline(s, x, y, width, height, '┌', '┐', '└', '┘', '─', '│', style)
 }
 
+// DrawWindow draws a window-like object at x and y as the top-left corner. This window
+// has an optional title. The Theme values "WindowHeader" and "Window" are used.
+func DrawWindow(s tcell.Screen, x, y, width, height int, title string, theme *Theme) {
+	headerStyle := theme.GetOrDefault("WindowHeader")
+
+	DrawRect(s, x, y, width, 1, ' ', headerStyle) // Draw header background
+	DrawStr(s, x + width/2 - len(title)/2, y, title, headerStyle) // Draw header title
+
+	DrawRect(s, x, y+1, width, height-1, ' ', theme.GetOrDefault("Window")) // Draw body
+}
+
 // TODO: add DrawShadow(x, y, width, height int)
-// TODO: add DrawWindow(x, y, width, height int, style tcell.Style)

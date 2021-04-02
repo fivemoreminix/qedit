@@ -11,9 +11,9 @@ import (
 type FileSelectorDialog struct {
 	MustExist           bool           // Whether the dialog should have a user select an existing file.
 	FilesChosenCallback func([]string) // Returns slice of filenames selected. nil if user canceled.
-	CancelCallback      func()         // Called when the dialog has been canceled by the user
+	Theme *Theme
 
-	container     *WindowContainer
+	title         string
 	x, y          int
 	width, height int
 	focused       bool
@@ -24,16 +24,14 @@ type FileSelectorDialog struct {
 	inputField    *InputField
 	confirmButton *Button
 	cancelButton  *Button
-
-	Theme *Theme
 }
 
 func NewFileSelectorDialog(screen *tcell.Screen, title string, mustExist bool, theme *Theme, filesChosenCallback func([]string), cancelCallback func()) *FileSelectorDialog {
 	dialog := &FileSelectorDialog{
 		MustExist:           mustExist,
 		FilesChosenCallback: filesChosenCallback,
-		container:           NewWindowContainer(title, nil, theme),
 		Theme:               theme,
+		title: title,
 	}
 
 	dialog.inputField = NewInputField(screen, "", theme)
@@ -55,12 +53,16 @@ func (d *FileSelectorDialog) onConfirm() {
 	}
 }
 
+func (d *FileSelectorDialog) SetCancelCallback(callback func()) {
+	d.cancelButton.Callback = callback
+}
+
 func (d *FileSelectorDialog) SetTitle(title string) {
-	d.container.Title = title
+	d.title = title
 }
 
 func (d *FileSelectorDialog) Draw(s tcell.Screen) {
-	d.container.Draw(s)
+	DrawWindow(s, d.x, d.y, d.width, d.height, d.title, d.Theme)
 
 	// Update positions of child components (dependent on size information that may not be available at SetPos() )
 	btnWidth, _ := d.confirmButton.GetSize()
@@ -78,6 +80,9 @@ func (d *FileSelectorDialog) SetFocused(v bool) {
 
 func (d *FileSelectorDialog) SetTheme(theme *Theme) {
 	d.Theme = theme
+	d.inputField.SetTheme(theme)
+	d.confirmButton.SetTheme(theme)
+	d.cancelButton.SetTheme(theme)
 }
 
 func (d *FileSelectorDialog) GetPos() (int, int) {
@@ -86,13 +91,12 @@ func (d *FileSelectorDialog) GetPos() (int, int) {
 
 func (d *FileSelectorDialog) SetPos(x, y int) {
 	d.x, d.y = x, y
-	d.container.SetPos(x, y)
 	d.inputField.SetPos(d.x+1, d.y+2)   // Center input field
 	d.cancelButton.SetPos(d.x+1, d.y+4) // Place "Cancel" button on left, bottom
 }
 
 func (d *FileSelectorDialog) GetMinSize() (int, int) {
-	return len(d.container.Title) + 2, 6
+	return Max(len(d.title), 8) + 2, 6
 }
 
 func (d *FileSelectorDialog) GetSize() (int, int) {
@@ -102,7 +106,6 @@ func (d *FileSelectorDialog) GetSize() (int, int) {
 func (d *FileSelectorDialog) SetSize(width, height int) {
 	minX, minY := d.GetMinSize()
 	d.width, d.height = Max(width, minX), Max(height, minY)
-	d.container.SetSize(d.width, d.height)
 
 	d.inputField.SetSize(d.width-2, 1)
 	d.cancelButton.SetSize(d.cancelButton.GetMinSize())
@@ -112,7 +115,8 @@ func (d *FileSelectorDialog) SetSize(width, height int) {
 func (d *FileSelectorDialog) HandleEvent(event tcell.Event) bool {
 	switch ev := event.(type) {
 	case *tcell.EventKey:
-		if ev.Key() == tcell.KeyTab {
+		switch ev.Key() {
+		case tcell.KeyTab:
 			d.tabOrder[d.tabOrderIdx].SetFocused(false)
 
 			d.tabOrderIdx++
@@ -123,6 +127,16 @@ func (d *FileSelectorDialog) HandleEvent(event tcell.Event) bool {
 			d.tabOrder[d.tabOrderIdx].SetFocused(true)
 
 			return true
+		case tcell.KeyEsc:
+			if d.cancelButton.Callback != nil {
+				d.cancelButton.Callback()
+			}
+			return true
+		case tcell.KeyEnter:
+			if d.tabOrder[d.tabOrderIdx] == d.inputField {
+				d.onConfirm()
+				return true
+			}
 		}
 	}
 	return d.tabOrder[d.tabOrderIdx].HandleEvent(event)
