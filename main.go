@@ -135,10 +135,10 @@ func main() {
 				textEdit := ui.NewTextEdit(&s, path, bytes, &theme)
 				tabContainer.AddTab(path, textEdit)
 			}
-			// TODO: free the dialog instead?
 			dialog = nil // Hide the file selector
 
 			changeFocus(tabContainer)
+			tabContainer.FocusTab(tabContainer.GetTabCount()-1)
 		}
 		dialog = ui.NewFileSelectorDialog(
 			&s,
@@ -270,8 +270,12 @@ func main() {
 
 	searchMenu := ui.NewMenu("Search", 0, &theme)
 
-	searchMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New", Callback: func() {
+	searchMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Find and Replace...", Shortcut: "Ctrl+F", Callback: func() {
 		s.Beep()
+	}}, &ui.ItemEntry{Name: "Find in Directory...", QuickChar: 8, Callback: func() {
+
+	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Go to line...", Shortcut: "Ctrl+G", Callback: func() {
+
 	}}})
 
 	menuBar.AddMenu(fileMenu)
