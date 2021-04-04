@@ -11,7 +11,7 @@ import (
 type FileSelectorDialog struct {
 	MustExist           bool           // Whether the dialog should have a user select an existing file.
 	FilesChosenCallback func([]string) // Returns slice of filenames selected. nil if user canceled.
-	Theme *Theme
+	Theme               *Theme
 
 	title         string
 	x, y          int
@@ -31,7 +31,7 @@ func NewFileSelectorDialog(screen *tcell.Screen, title string, mustExist bool, t
 		MustExist:           mustExist,
 		FilesChosenCallback: filesChosenCallback,
 		Theme:               theme,
-		title: title,
+		title:               title,
 	}
 
 	dialog.inputField = NewInputField(screen, []byte{}, theme.GetOrDefault("Window")) // Use window's theme for InputField

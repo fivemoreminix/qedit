@@ -62,7 +62,6 @@ type Buffer interface {
 	// the last rune before the line delimiter.
 	ClampLineCol(line, col int) (int, int)
 
-
 	// LineColToPos returns the index of the byte at line, col. If line is less than
 	// zero, or more than the number of available lines, the function will panic. If
 	// col is less than zero, the function will panic. If col is greater than the

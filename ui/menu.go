@@ -77,7 +77,7 @@ type MenuBar struct {
 	x, y          int
 	width, height int
 	focused       bool
-	selected      int   // Index of selection in MenuBar
+	selected      int  // Index of selection in MenuBar
 	menusVisible  bool // Whether to draw the selected menu
 
 	Theme *Theme
@@ -115,7 +115,7 @@ func (b *MenuBar) ActivateMenuUnderCursor() {
 }
 
 func (b *MenuBar) CursorLeft() {
-	if b.menusVisible {	
+	if b.menusVisible {
 		b.menus[b.selected].SetFocused(false) // Unfocus current menu
 	}
 
@@ -158,7 +158,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	DrawRect(s, b.x, b.y, b.width, 1, ' ', normalStyle)
 	col := b.x + 1
 	for i, item := range b.menus {
-		sty := normalStyle		
+		sty := normalStyle
 		if b.focused && b.selected == i {
 			sty = b.Theme.GetOrDefault("MenuBarSelected") // Use special style for selected item
 		}
@@ -242,7 +242,7 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 			if !b.menusVisible { // If menus are not visible...
 				b.ActivateMenuUnderCursor()
 			} else { // The selected Menu is visible, send the event to it
-				return b.menus[b.selected].HandleEvent(event)				
+				return b.menus[b.selected].HandleEvent(event)
 			}
 		case tcell.KeyLeft:
 			b.CursorLeft()
@@ -261,14 +261,14 @@ func (b *MenuBar) HandleEvent(event tcell.Event) bool {
 				for i, m := range b.menus {
 					r := QuickCharInString(m.Name, m.QuickChar)
 					if r != 0 && r == ev.Rune() {
-						b.selected = i // Select menu at i
+						b.selected = i              // Select menu at i
 						b.ActivateMenuUnderCursor() // Show menu
 						break
 					}
 				}
 			} else {
 				return b.menus[b.selected].HandleEvent(event) // Have menu handle quick char event
-			}		
+			}
 
 		default:
 			if b.menusVisible {
@@ -299,10 +299,10 @@ type Menu struct {
 // New creates a new Menu. `items` can be `nil`.
 func NewMenu(name string, quickChar int, theme *Theme) *Menu {
 	return &Menu{
-		Name:  name,
+		Name:      name,
 		QuickChar: quickChar,
-		Items: make([]Item, 0, 6),
-		Theme: theme,
+		Items:     make([]Item, 0, 6),
+		Theme:     theme,
 	}
 }
 
@@ -329,7 +329,7 @@ func (m *Menu) ActivateItemUnderCursor() {
 		m.itemSelectedCallback()
 	case *Menu:
 		// TODO: implement sub-menus ...
-	}	
+	}
 }
 
 func (m *Menu) CursorUp() {
@@ -379,7 +379,7 @@ func (m *Menu) Draw(s tcell.Screen) {
 			} else {
 				sty = defaultStyle
 			}
-			
+
 			nameCols := DrawQuickCharStr(s, m.x+1, m.y+1+i, item.GetName(), item.GetQuickCharIdx(), sty)
 
 			str := strings.Repeat(" ", m.width-2-nameCols) // Fill space after menu names to border
@@ -437,7 +437,7 @@ func (m *Menu) GetSize() (int, int) {
 	}
 
 	m.width = 1 + maxNameLen + shortcutsWidth + 1 // Add two for padding
-	m.height = 1 + len(m.Items) + 1           // And another two for the same reason ...
+	m.height = 1 + len(m.Items) + 1               // And another two for the same reason ...
 	return m.width, m.height
 }
 

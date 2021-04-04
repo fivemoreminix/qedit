@@ -4,9 +4,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"io/fs"
 	"io/ioutil"
+	"log"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -186,7 +186,7 @@ func main() {
 		tabContainer.AddTab("noname", textEdit)
 
 		changeFocus(tabContainer)
-		tabContainer.FocusTab(tabContainer.GetTabCount()-1)
+		tabContainer.FocusTab(tabContainer.GetTabCount() - 1)
 	}}, &ui.ItemEntry{Name: "Open...", Shortcut: "Ctrl+O", Callback: func() {
 		callback := func(filePaths []string) {
 			var errOccurred bool
@@ -214,7 +214,7 @@ func main() {
 				dialog = nil // Hide the file selector
 				changeFocus(tabContainer)
 				if tabContainer.GetTabCount() > 0 {
-					tabContainer.FocusTab(tabContainer.GetTabCount()-1)
+					tabContainer.FocusTab(tabContainer.GetTabCount() - 1)
 				}
 			}
 		}
@@ -254,13 +254,13 @@ func main() {
 			}
 		}
 	}}, &ui.ItemEntry{Name: "Save As...", QuickChar: 5, Callback: saveAs}, &ui.ItemSeparator{},
-	&ui.ItemEntry{Name: "Close", Shortcut: "Ctrl+Q", Callback: func() {
-		if tabContainer.GetTabCount() > 0 {
-			tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
-		} else { // No tabs open; close the editor
-			closing = true
-		}
-	}}})
+		&ui.ItemEntry{Name: "Close", Shortcut: "Ctrl+Q", Callback: func() {
+			if tabContainer.GetTabCount() > 0 {
+				tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
+			} else { // No tabs open; close the editor
+				closing = true
+			}
+		}}})
 
 	panelMenu := ui.NewMenu("Panel", 0, &theme)
 
@@ -426,7 +426,7 @@ func main() {
 					}
 				}
 
-				if ev.Modifiers() & tcell.ModCtrl != 0 {
+				if ev.Modifiers()&tcell.ModCtrl != 0 {
 					handled := menuBar.HandleEvent(ev)
 					if handled {
 						continue // Avoid passing the event to the focusedComponent

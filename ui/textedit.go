@@ -9,9 +9,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/mattn/go-runewidth"
 	"github.com/fivemoreminix/qedit/ui/buffer"
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 )
 
 // A Selection represents a region of the buffer to be selected for text editing
@@ -91,12 +91,12 @@ loop:
 	t.Buffer = buffer.NewRopeBuffer(contents)
 
 	// TODO: replace with automatic determination of language via filetype
-	lang := &buffer.Language {
-		Name: "Go",
+	lang := &buffer.Language{
+		Name:      "Go",
 		Filetypes: []string{".go"},
-		Rules: map[*buffer.RegexpRegion]buffer.Syntax {
+		Rules: map[*buffer.RegexpRegion]buffer.Syntax{
 			&buffer.RegexpRegion{Start: regexp.MustCompile("\\/\\/.*")}: buffer.Comment,
-			&buffer.RegexpRegion{Start: regexp.MustCompile("\".*?\"")}: buffer.String,
+			&buffer.RegexpRegion{Start: regexp.MustCompile("\".*?\"")}:  buffer.String,
 			&buffer.RegexpRegion{
 				Start: regexp.MustCompile("\\b(var|const|if|else|range|for|switch|fallthrough|case|default|break|continue|go|func|return|defer|import|type|package)\\b"),
 			}: buffer.Keyword,
@@ -115,7 +115,7 @@ loop:
 		},
 	}
 
-	colorscheme := &buffer.Colorscheme {
+	colorscheme := &buffer.Colorscheme{
 		buffer.Default: tcell.Style{}.Foreground(tcell.ColorLightGray).Background(tcell.ColorBlack),
 		buffer.Comment: tcell.Style{}.Foreground(tcell.ColorGray).Background(tcell.ColorBlack),
 		buffer.String:  tcell.Style{}.Foreground(tcell.ColorOlive).Background(tcell.ColorBlack),
@@ -275,7 +275,7 @@ func (t *TextEdit) SetLineCol(line, col int) {
 	line, col = t.Buffer.ClampLineCol(line, col)
 
 	// Handle hard tabs
-	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize-1) // Offset for the current line from hard tabs (temporary; purely visual)
+	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1) // Offset for the current line from hard tabs (temporary; purely visual)
 
 	// Scroll the screen when going to lines out of view
 	if line >= t.scrolly+t.height-1 { // If the new line is below view...
@@ -386,7 +386,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 	selectedStyle := t.Theme.GetOrDefault("TextEditSelected")
 	columnStyle := t.Theme.GetOrDefault("TextEditColumn")
 
-	t.Highlighter.UpdateInvalidatedLines(t.scrolly, t.scrolly + (t.height-1))
+	t.Highlighter.UpdateInvalidatedLines(t.scrolly, t.scrolly+(t.height-1))
 
 	var tabBytes []byte
 	if t.UseHardTabs {
@@ -410,30 +410,30 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 			// When iterating lineTabs: the value at i is
 			// the rune index the tab was found at.
-//			var lineTabs  [128]int // Rune index for each hard tab '\t' in lineBytes
-//			var tabs      int // Length of lineTabs (number of hard tabs)
+			//			var lineTabs  [128]int // Rune index for each hard tab '\t' in lineBytes
+			//			var tabs      int // Length of lineTabs (number of hard tabs)
 			if t.UseHardTabs {
-//				var ri int // rune index
-//				var i int
-//				for i < len(lineBytes) {
-//					r, size := utf8.DecodeRune(lineBytes[i:])
-//					if r == '\t' {
-//						lineTabs[tabs] = ri
-//						tabs++
-//					}
-//					i += size
-//					ri++
-//				}
+				//				var ri int // rune index
+				//				var i int
+				//				for i < len(lineBytes) {
+				//					r, size := utf8.DecodeRune(lineBytes[i:])
+				//					if r == '\t' {
+				//						lineTabs[tabs] = ri
+				//						tabs++
+				//					}
+				//					i += size
+				//					ri++
+				//				}
 				lineBytes = bytes.ReplaceAll(lineBytes, []byte{'\t'}, tabBytes)
 			}
 
 			lineHighlightData := t.Highlighter.GetLineMatches(line)
 			var lineHighlightDataIdx int
 
-			var byteIdx int      // Byte index of lineStr
+			var byteIdx int // Byte index of lineStr
 			// X offset we draw the next rune at (some runes can be 2 cols wide)
 			col := t.x + columnWidth
-			var runeIdx int      // Index into lineStr (as runes) we draw the next character at
+			var runeIdx int // Index into lineStr (as runes) we draw the next character at
 
 			// REWRITE OF SCROLL FUNC:
 			for runeIdx < t.scrollx && byteIdx < len(lineBytes) {
@@ -444,7 +444,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 			tabOffsetAtRuneIdx := func(idx int) int {
 				var count int
-				var i     int
+				var i int
 				for i < len(origLineBytes) {
 					r, size := utf8.DecodeRune(origLineBytes[i:])
 					if r == '\t' {
@@ -459,7 +459,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 			// not affected by the hard tabs becoming 4 or 8 spaces.
 			origRuneIdx := func(idx int) int { // returns the idx that is not mutated by hard tabs
 				var ridx int // new rune idx
-				var i    int // byte index
+				var i int    // byte index
 				for idx > 0 {
 					r, size := utf8.DecodeRune(origLineBytes[i:])
 					if r == '\t' {
@@ -475,9 +475,9 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 				return ridx
 			}
 
-			for col < t.x + t.width { // For each column in view...
-				var r rune = ' ' // Rune to draw this iteration
-				var size int = 1 // Size of the rune (in bytes)
+			for col < t.x+t.width { // For each column in view...
+				var r rune = ' '  // Rune to draw this iteration
+				var size int = 1  // Size of the rune (in bytes)
 				var selected bool // Whether this rune should be styled as selected
 
 				tabOffsetAtRuneIdx := tabOffsetAtRuneIdx(runeIdx)

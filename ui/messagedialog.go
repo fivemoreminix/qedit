@@ -49,8 +49,8 @@ func NewMessageDialog(title string, message string, kind MessageDialogKind, opti
 	}
 
 	dialog := MessageDialog{
-		Title: title,
-		Kind: kind,
+		Title:    title,
+		Kind:     kind,
 		Callback: callback,
 
 		theme: theme,
@@ -117,8 +117,8 @@ func (d *MessageDialog) SetPos(x, y int) {
 
 func (d *MessageDialog) GetMinSize() (int, int) {
 	lines := strings.Count(d.messageWrapped, "\n") + 1
-	
-	return Max(len(d.Title)+2, 30), 2+lines+2
+
+	return Max(len(d.Title)+2, 30), 2 + lines + 2
 }
 
 func (d *MessageDialog) GetSize() (int, int) {

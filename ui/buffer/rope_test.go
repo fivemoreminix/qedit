@@ -19,7 +19,7 @@ func TestRopePosToLineCol(t *testing.T) {
 		t.Errorf("Expected startCol == 0, got %v", startCol)
 	}
 
-	endPos := buf.Len()-1
+	endPos := buf.Len() - 1
 	endLine, endCol := buf.PosToLineCol(endPos)
 	t.Logf("endPos = %v", endPos)
 	if endLine != 3 {

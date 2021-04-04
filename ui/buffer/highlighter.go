@@ -23,14 +23,14 @@ func (c *Colorscheme) GetStyle(s Syntax) tcell.Style {
 		}
 	}
 
-	return tcell.StyleDefault; // No value for Default; use default style.
+	return tcell.StyleDefault // No value for Default; use default style.
 }
 
 type RegexpRegion struct {
 	Start    *regexp.Regexp
-	End      *regexp.Regexp // Should be "$" by default
-	Skip     *regexp.Regexp // Optional
-	Error    *regexp.Regexp // Optional
+	End      *regexp.Regexp   // Should be "$" by default
+	Skip     *regexp.Regexp   // Optional
+	Error    *regexp.Regexp   // Optional
 	Specials []*regexp.Regexp // Optional (nil or zero len)
 }
 
@@ -97,9 +97,9 @@ func (h *Highlighter) updateLines(startLine, endLine int) {
 	bytes := h.Buffer.Slice(startLine, 0, endLine, endCol)
 
 	for k, v := range h.Language.Rules {
-		var indexes [][]int // [][2]int
+		var indexes [][]int                        // [][2]int
 		if k.End != nil && k.End.String() != "$" { // If this range might be a multiline range...
-			endIndexes := k.End.FindAllIndex(bytes, -1) // Attempt to find every ending match
+			endIndexes := k.End.FindAllIndex(bytes, -1)     // Attempt to find every ending match
 			startIndexes := k.Start.FindAllIndex(bytes, -1) // Attempt to find every starting match
 			// ...
 			_ = endIndexes
@@ -111,9 +111,9 @@ func (h *Highlighter) updateLines(startLine, endLine int) {
 		if indexes != nil {
 			for i := range indexes {
 				startLine, startCol := h.Buffer.PosToLineCol(indexes[i][0] + startPos)
-				endLine, endCol := h.Buffer.PosToLineCol(indexes[i][1]-1 + startPos)
+				endLine, endCol := h.Buffer.PosToLineCol(indexes[i][1] - 1 + startPos)
 
-				match := Match { startCol, endLine, endCol, v }
+				match := Match{startCol, endLine, endCol, v}
 
 				h.lineMatches[startLine] = append(h.lineMatches[startLine], match) // Unsorted
 			}
@@ -138,7 +138,7 @@ func (h *Highlighter) UpdateInvalidatedLines(startLine, endLine int) {
 
 	// Keep endLine clamped
 	if endLine >= len(h.lineMatches) {
-		endLine = len(h.lineMatches)-1
+		endLine = len(h.lineMatches) - 1
 	}
 
 	// Move endLine back to first line at or before endLine with invalidated changes

@@ -57,7 +57,7 @@ func (b *RopeBuffer) LineColToPos(line, col int) int {
 // delimiter. line starts from zero. Data returned may or may not be a copy: do not
 // write it.
 func (b *RopeBuffer) Line(line int) []byte {
-	pos   := b.getLineStartPos(line)
+	pos := b.getLineStartPos(line)
 	bytes := 0
 
 	_rope := (*rope.Node)(b)
@@ -99,7 +99,7 @@ func (b *RopeBuffer) Line(line int) []byte {
 func (b *RopeBuffer) Slice(startLine, startCol, endLine, endCol int) []byte {
 	endPos := b.LineColToPos(endLine, endCol)
 	if length := (*rope.Node)(b).Len(); endPos >= length {
-		endPos = length-1
+		endPos = length - 1
 	}
 	return (*rope.Node)(b).Slice(b.LineColToPos(startLine, startCol), endPos+1)
 }
@@ -164,7 +164,7 @@ func (b *RopeBuffer) getLineStartPos(line int) int {
 	if line > 0 {
 		_rope.IndexAllFunc(0, _rope.Len(), []byte{'\n'}, func(idx int) bool {
 			line--
-			pos = idx + 1 // idx+1 = start of line after delimiter
+			pos = idx + 1  // idx+1 = start of line after delimiter
 			if line <= 0 { // If pos is now the start of the line we're searching for...
 				return true // Stop indexing
 			}
@@ -213,7 +213,7 @@ func (b *RopeBuffer) RunesInLineWithDelim(line int) int {
 					count++ // Add the '\r' we previously thought was part of the delim.
 				}
 			}
-			
+
 			// Respect Utf-8 codepoint boundaries
 			_, size := utf8.DecodeRune(data[i:])
 			i += size
@@ -257,7 +257,7 @@ func (b *RopeBuffer) RunesInLine(line int) int {
 				}
 			}
 			count++
-			
+
 			// Respect Utf-8 codepoint boundaries
 			_, size := utf8.DecodeRune(data[i:])
 			i += size
@@ -275,8 +275,8 @@ func (b *RopeBuffer) RunesInLine(line int) int {
 func (b *RopeBuffer) ClampLineCol(line, col int) (int, int) {
 	if line < 0 {
 		line = 0
-	} else if lines := b.Lines()-1; line > lines {
-		line = lines		
+	} else if lines := b.Lines() - 1; line > lines {
+		line = lines
 	}
 
 	if col < 0 {

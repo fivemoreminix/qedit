@@ -81,7 +81,7 @@ func (f *InputField) insert(dst []byte, at int, src ...byte) []byte {
 		copy(dstn[at:], src)
 		return dstn
 	}
-	dstn := make([]byte, len(dst) + len(src))
+	dstn := make([]byte, len(dst)+len(src))
 	copy(dstn, dst[:at])
 	copy(dstn[at:], src)
 	copy(dstn[at+len(src):], dst[at:])

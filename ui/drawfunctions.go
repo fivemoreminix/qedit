@@ -47,7 +47,7 @@ func DrawQuickCharStr(s tcell.Screen, x, y int, str string, quickCharIdx int, st
 
 		sty := style
 		if runeIdx == quickCharIdx {
-			sty = style.Underline(true)						
+			sty = style.Underline(true)
 		}
 		s.SetContent(x+col, y, r, nil, sty)
 
@@ -89,8 +89,8 @@ func DrawRectOutlineDefault(s tcell.Screen, x, y, width, height int, style tcell
 func DrawWindow(s tcell.Screen, x, y, width, height int, title string, theme *Theme) {
 	headerStyle := theme.GetOrDefault("WindowHeader")
 
-	DrawRect(s, x, y, width, 1, ' ', headerStyle) // Draw header background
-	DrawStr(s, x + width/2 - len(title)/2, y, title, headerStyle) // Draw header title
+	DrawRect(s, x, y, width, 1, ' ', headerStyle)             // Draw header background
+	DrawStr(s, x+width/2-len(title)/2, y, title, headerStyle) // Draw header title
 
 	DrawRect(s, x, y+1, width, height-1, ' ', theme.GetOrDefault("Window")) // Draw body
 }
