@@ -351,7 +351,9 @@ func main() {
 		screen.Clear()
 
 		// Draw background (grey and black checkerboard)
-		ui.DrawRect(screen, 0, 0, sizex, sizey, '▚', tcell.Style{}.Foreground(tcell.ColorGrey).Background(tcell.ColorBlack))
+		// TODO: draw checkered background on panics with error dialog
+		//ui.DrawRect(screen, 0, 0, sizex, sizey, '▚', tcell.Style{}.Foreground(tcell.ColorGrey).Background(tcell.ColorBlack))
+		ui.DrawRect(screen, 0, 1, sizex, sizey-1, ' ', tcell.Style{}.Background(tcell.ColorBlack))
 
 		if tabContainer.GetTabCount() > 0 { // Draw the tab container only if a tab is open
 			tabContainer.Draw(screen)
