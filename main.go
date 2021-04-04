@@ -25,7 +25,7 @@ var theme = ui.Theme{
 }
 
 var (
-	screen tcell.Screen
+	screen *tcell.Screen
 
 	menuBar      *ui.MenuBar
 	tabContainer *ui.TabContainer
@@ -54,11 +54,21 @@ func showErrorDialog(title string, message string, callback func()) {
 	changeFocus(dialog)
 }
 
+// returns nil if no TextEdit is visible
+func getActiveTextEdit() *ui.TextEdit {
+	if tabContainer.GetTabCount() > 0 {
+		tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
+		te := tab.Child.(*ui.TextEdit)
+		return te
+	}
+	return nil
+}
+
 // Shows the Save As... dialog for saving unnamed files
 func saveAs() {
 	callback := func(filePaths []string) {
+		te := getActiveTextEdit() // te should have value if we are here
 		tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
-		te := tab.Child.(*ui.TextEdit)
 
 		// If we got the callback, it is safe to assume there are one or more files
 		f, err := os.OpenFile(filePaths[0], os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.ModePerm)
@@ -81,7 +91,7 @@ func saveAs() {
 	}
 
 	dialog = ui.NewFileSelectorDialog(
-		&screen,
+		screen,
 		"Select a file to overwrite",
 		false,
 		&theme,
@@ -108,19 +118,20 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	screen, err := tcell.NewScreen()
+	s, err := tcell.NewScreen()
+	screen = &s
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	if err := screen.Init(); err != nil {
+	if err := s.Init(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	defer screen.Fini() // Useful for handling panics
+	defer s.Fini() // Useful for handling panics
 
 	var closing bool
-	sizex, sizey := screen.Size()
+	sizex, sizey := s.Size()
 
 	tabContainer = ui.NewTabContainer(&theme)
 	tabContainer.SetPos(0, 1)
@@ -154,7 +165,7 @@ func main() {
 				}
 			}
 
-			textEdit := ui.NewTextEdit(&screen, arg, bytes, &theme)
+			textEdit := ui.NewTextEdit(screen, arg, bytes, &theme)
 			textEdit.Dirty = dirty
 			tabContainer.AddTab(arg, textEdit)
 		}
@@ -171,7 +182,7 @@ func main() {
 	fileMenu := ui.NewMenu("File", 0, &theme)
 
 	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New File", Shortcut: "Ctrl+N", Callback: func() {
-		textEdit := ui.NewTextEdit(&screen, "", []byte{}, &theme) // No file path, no contents
+		textEdit := ui.NewTextEdit(screen, "", []byte{}, &theme) // No file path, no contents
 		tabContainer.AddTab("noname", textEdit)
 
 		changeFocus(tabContainer)
@@ -195,7 +206,7 @@ func main() {
 					continue
 				}
 
-				textEdit := ui.NewTextEdit(&screen, path, bytes, &theme)
+				textEdit := ui.NewTextEdit(screen, path, bytes, &theme)
 				tabContainer.AddTab(path, textEdit)
 			}
 
@@ -208,7 +219,7 @@ func main() {
 			}
 		}
 		dialog = ui.NewFileSelectorDialog(
-			&screen,
+			screen,
 			"Comma-separated files or a directory",
 			true,
 			&theme,
@@ -220,9 +231,8 @@ func main() {
 		)
 		changeFocus(dialog)
 	}}, &ui.ItemEntry{Name: "Save", Shortcut: "Ctrl+S", Callback: func() {
-		if tabContainer.GetTabCount() > 0 {
-			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
-			te := tab.Child.(*ui.TextEdit)
+		te := getActiveTextEdit()
+		if te != nil {
 			if te.FilePath != "" {
 				f, err := os.OpenFile(te.FilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.ModePerm)
 				if err != nil {
@@ -281,9 +291,8 @@ func main() {
 	editMenu := ui.NewMenu("Edit", 0, &theme)
 
 	editMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Cut", Shortcut: "Ctrl+X", Callback: func() {
-		if tabContainer.GetTabCount() > 0 {
-			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
-			te := tab.Child.(*ui.TextEdit)
+		te := getActiveTextEdit()
+		if te != nil {
 			bytes := te.GetSelectedBytes()
 			var err error
 			if len(bytes) > 0 { // If something is selected...
@@ -298,9 +307,8 @@ func main() {
 			}
 		}
 	}}, &ui.ItemEntry{Name: "Copy", Shortcut: "Ctrl+C", Callback: func() {
-		if tabContainer.GetTabCount() > 0 {
-			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
-			te := tab.Child.(*ui.TextEdit)
+		te := getActiveTextEdit()
+		if te != nil {
 			bytes := te.GetSelectedBytes()
 			var err error
 			if len(bytes) > 0 { // If there is something selected...
@@ -314,10 +322,8 @@ func main() {
 			}
 		}
 	}}, &ui.ItemEntry{Name: "Paste", Shortcut: "Ctrl+V", Callback: func() {
-		if tabContainer.GetTabCount() > 0 {
-			tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
-			te := tab.Child.(*ui.TextEdit)
-
+		te := getActiveTextEdit()
+		if te != nil {
 			contents, err := ClipRead()
 			if err != nil {
 				showErrorDialog("Clipboard Failure", fmt.Sprintf("%v", err), nil)
@@ -335,11 +341,15 @@ func main() {
 	searchMenu := ui.NewMenu("Search", 0, &theme)
 
 	searchMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Find and Replace...", Shortcut: "Ctrl+F", Callback: func() {
-		screen.Beep()
+		s.Beep()
 	}}, &ui.ItemEntry{Name: "Find in Directory...", QuickChar: 8, Callback: func() {
 
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Go to line...", Shortcut: "Ctrl+G", Callback: func() {
-
+		te := getActiveTextEdit()
+		if te != nil {
+			line := 50
+			te.SetLineCol(line-1, 0)
+		}
 	}}})
 
 	menuBar.AddMenu(fileMenu)
@@ -348,17 +358,17 @@ func main() {
 	menuBar.AddMenu(searchMenu)
 
 	for !closing {
-		screen.Clear()
+		s.Clear()
 
 		// Draw background (grey and black checkerboard)
 		// TODO: draw checkered background on panics with error dialog
 		//ui.DrawRect(screen, 0, 0, sizex, sizey, '▚', tcell.Style{}.Foreground(tcell.ColorGrey).Background(tcell.ColorBlack))
-		ui.DrawRect(screen, 0, 1, sizex, sizey-1, ' ', tcell.Style{}.Background(tcell.ColorBlack))
+		ui.DrawRect(s, 0, 1, sizex, sizey-1, ' ', tcell.Style{}.Background(tcell.ColorBlack))
 
 		if tabContainer.GetTabCount() > 0 { // Draw the tab container only if a tab is open
-			tabContainer.Draw(screen)
+			tabContainer.Draw(s)
 		}
-		menuBar.Draw(screen) // Always draw the menu bar
+		menuBar.Draw(s) // Always draw the menu bar
 
 		if dialog != nil {
 			// Update fileSelector dialog pos and size
@@ -366,11 +376,11 @@ func main() {
 			dialog.SetSize(diagMinX, diagMinY)
 			dialog.SetPos(sizex/2-diagMinX/2, sizey/2-diagMinY/2) // Center
 
-			dialog.Draw(screen)
+			dialog.Draw(s)
 		}
 
 		// Draw statusbar
-		ui.DrawRect(screen, 0, sizey-1, sizex, 1, ' ', theme["StatusBar"])
+		ui.DrawRect(s, 0, sizey-1, sizex, 1, ' ', theme["StatusBar"])
 		if tabContainer.GetTabCount() > 0 {
 			focusedTab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 			te := focusedTab.Child.(*ui.TextEdit)
@@ -392,19 +402,19 @@ func main() {
 			}
 
 			str := fmt.Sprintf(" Filetype: %s  %d, %d  %s  %s", "None", line+1, col+1, delim, tabs)
-			ui.DrawStr(screen, 0, sizey-1, str, theme["StatusBar"])
+			ui.DrawStr(s, 0, sizey-1, str, theme["StatusBar"])
 		}
 
-		screen.Show()
+		s.Show()
 
-		switch ev := screen.PollEvent().(type) {
+		switch ev := s.PollEvent().(type) {
 		case *tcell.EventResize:
-			sizex, sizey = screen.Size()
+			sizex, sizey = s.Size()
 
 			menuBar.SetSize(sizex, 1)
 			tabContainer.SetSize(sizex, sizey-2)
 
-			screen.Sync() // Redraw everything
+			s.Sync() // Redraw everything
 		case *tcell.EventKey:
 			// On Escape, we change focus between editor and the MenuBar.
 			if dialog == nil {
