@@ -98,17 +98,20 @@ loop:
 			&buffer.RegexpRegion{Start: regexp.MustCompile("\\/\\/.*")}: buffer.Comment,
 			&buffer.RegexpRegion{Start: regexp.MustCompile("\".*?\"")}: buffer.String,
 			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b(var|const|if|else|range|for|switch|case|go|func|return|defer|import|type|package)\\b"),
+				Start: regexp.MustCompile("\\b(var|const|if|else|range|for|switch|fallthrough|case|default|break|continue|go|func|return|defer|import|type|package)\\b"),
 			}: buffer.Keyword,
 			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b(int|byte|string|bool|struct)\\b"),
+				Start: regexp.MustCompile("\\b(u?int(8|16|32|64)?|rune|byte|string|bool|struct)\\b"),
 			}: buffer.Type,
 			&buffer.RegexpRegion{
 				Start: regexp.MustCompile("\\b([1-9][0-9]*|0[0-7]*|0[Xx][0-9A-Fa-f]+|0[Bb][01]+)\\b"),
 			}: buffer.Number,
 			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b(len|cap|panic)\\b"),
+				Start: regexp.MustCompile("\\b(len|cap|panic|make|copy|append)\\b"),
 			}: buffer.Builtin,
+			&buffer.RegexpRegion{
+				Start: regexp.MustCompile("\\b(nil|true|false)\\b"),
+			}: buffer.Special,
 		},
 	}
 
@@ -120,6 +123,7 @@ loop:
 		buffer.Type:    tcell.Style{}.Foreground(tcell.ColorPurple).Background(tcell.ColorBlack),
 		buffer.Number:  tcell.Style{}.Foreground(tcell.ColorFuchsia).Background(tcell.ColorBlack),
 		buffer.Builtin: tcell.Style{}.Foreground(tcell.ColorBlue).Background(tcell.ColorBlack),
+		buffer.Special: tcell.Style{}.Foreground(tcell.ColorFuchsia).Background(tcell.ColorBlack),
 	}
 
 	t.Highlighter = buffer.NewHighlighter(t.Buffer, lang, colorscheme)
