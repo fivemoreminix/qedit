@@ -31,7 +31,7 @@ func (theme *Theme) GetOrDefault(key string) tcell.Style {
 var DefaultTheme = Theme{
 	"Normal":           tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
 	"Button":           tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite),
-	"InputField":       tcell.Style{}.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack),
+	"InputField":       tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
 	"MenuBar":          tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
 	"MenuBarSelected":  tcell.Style{}.Foreground(tcell.ColorSilver).Background(tcell.ColorBlack),
 	"Menu":             tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),

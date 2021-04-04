@@ -1,10 +1,14 @@
 package ui
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"unicode/utf8"
+
+	"github.com/gdamore/tcell/v2"
+)
 
 // An InputField is a single-line input box.
 type InputField struct {
-	Text string
+	Buffer []byte
 
 	cursorPos     int
 	scrollPos     int
@@ -12,16 +16,19 @@ type InputField struct {
 	width, height int
 	focused       bool
 	screen        *tcell.Screen
-
-	Theme *Theme
+	style         tcell.Style
 }
 
-func NewInputField(screen *tcell.Screen, placeholder string, theme *Theme) *InputField {
+func NewInputField(screen *tcell.Screen, placeholder []byte, style tcell.Style) *InputField {
 	return &InputField{
-		Text:   placeholder,
+		Buffer: append(make([]byte, 0, Max(len(placeholder), 32)), placeholder...),
 		screen: screen,
-		Theme:  theme,
+		style:  style,
 	}
+}
+
+func (f *InputField) String() string {
+	return string(f.Buffer)
 }
 
 func (f *InputField) GetCursorPos() int {
@@ -29,13 +36,13 @@ func (f *InputField) GetCursorPos() int {
 }
 
 // SetCursorPos sets the cursor position offset. Offset is clamped to possible values.
-// The InputField is scrolled to show the new cursor position.
+// The InputField is scrolled to show the new cursor position. The offset is in runes.
 func (f *InputField) SetCursorPos(offset int) {
 	// Clamping
 	if offset < 0 {
 		offset = 0
-	} else if offset > len(f.Text) {
-		offset = len(f.Text)
+	} else if runes := utf8.RuneCount(f.Buffer); offset > runes {
+		offset = runes
 	}
 
 	// Scrolling
@@ -51,36 +58,86 @@ func (f *InputField) SetCursorPos(offset int) {
 	}
 }
 
+func (f *InputField) runeIdxToByteIdx(idx int) int {
+	var i int
+	for idx > 0 {
+		_, size := utf8.DecodeRune(f.Buffer[i:])
+		i += size
+		idx--
+	}
+	return i
+}
+
+func (f *InputField) Insert(contents []byte) {
+	f.Buffer = f.insert(f.Buffer, f.runeIdxToByteIdx(f.cursorPos), contents...)
+	f.SetCursorPos(f.cursorPos + utf8.RuneCount(contents))
+}
+
+// Efficient slice inserting from Slice Tricks.
+func (f *InputField) insert(dst []byte, at int, src ...byte) []byte {
+	if n := len(dst) + len(src); n <= cap(dst) {
+		dstn := dst[:n]
+		copy(dstn[at+len(src):], dst[at:])
+		copy(dstn[at:], src)
+		return dstn
+	}
+	dstn := make([]byte, len(dst) + len(src))
+	copy(dstn, dst[:at])
+	copy(dstn[at:], src)
+	copy(dstn[at+len(src):], dst[at:])
+	return dstn
+}
+
 func (f *InputField) Delete(forward bool) {
 	if forward {
-		if f.cursorPos < len(f.Text) { // If the cursor is not at the very end (past text)...
-			lineRunes := []rune(f.Text)
-			copy(lineRunes[f.cursorPos:], lineRunes[f.cursorPos+1:]) // Shift characters after cursor left
-			lineRunes = lineRunes[:len(lineRunes)-1]                 // Shrink line
-			f.Text = string(lineRunes)                               // Update line with new runes
+		if f.cursorPos < utf8.RuneCount(f.Buffer) { // If the cursor is not at the end...
+			f.Buffer = f.delete(f.Buffer, f.runeIdxToByteIdx(f.cursorPos))
 		}
 	} else {
 		if f.cursorPos > 0 { // If the cursor is not at the beginning...
-			lineRunes := []rune(f.Text)
-			copy(lineRunes[f.cursorPos-1:], lineRunes[f.cursorPos:]) // Shift characters at cursor left
-			lineRunes = lineRunes[:len(lineRunes)-1]                 // Shrink line length
-			f.Text = string(lineRunes)                               // Update line with new runes
-
-			f.SetCursorPos(f.cursorPos - 1) // Move cursor back
+			f.SetCursorPos(f.cursorPos - 1)
+			f.Buffer = f.delete(f.Buffer, f.runeIdxToByteIdx(f.cursorPos))
 		}
 	}
 }
 
+func (f *InputField) delete(dst []byte, at int) []byte {
+	copy(dst[at:], dst[at+1:])
+	dst[len(dst)-1] = 0
+	dst = dst[:len(dst)-1]
+	return dst
+}
+
 func (f *InputField) Draw(s tcell.Screen) {
-	style := f.Theme.GetOrDefault("InputField")
+	s.SetContent(f.x, f.y, '[', nil, f.style)
+	s.SetContent(f.x+f.width-1, f.y, ']', nil, f.style)
 
-	DrawRect(s, f.x, f.y, f.width, f.height, ' ', style) // Draw background
-	s.SetContent(f.x, f.y, '[', nil, style)
-	s.SetContent(f.x+f.width-1, f.y, ']', nil, style)
+	fg, bg, attr := f.style.Decompose()
+	invertedStyle := tcell.Style{}.Foreground(bg).Background(fg).Attributes(attr)
 
-	if len(f.Text) > 0 {
-		endPos := f.scrollPos + Min(len(f.Text)-f.scrollPos, f.width-2)
-		DrawStr(s, f.x+1, f.y, f.Text[f.scrollPos:endPos], style) // Draw text
+	var byteIdx int
+	var runeIdx int
+
+	// Scrolling
+	for byteIdx < len(f.Buffer) && runeIdx < f.scrollPos {
+		_, size := utf8.DecodeRune(f.Buffer[byteIdx:])
+		byteIdx += size
+		runeIdx++
+	}
+
+	for i := 0; i < f.width-2; i++ { // For each column between [ and ]
+		if byteIdx < len(f.Buffer) {
+			// Draw the rune
+			r, size := utf8.DecodeRune(f.Buffer[byteIdx:])
+
+			s.SetContent(f.x+1+i, f.y, r, nil, invertedStyle)
+
+			byteIdx += size
+			runeIdx++
+		} else {
+			// Draw a '.'
+			s.SetContent(f.x+1+i, f.y, '.', nil, f.style)
+		}
 	}
 
 	// Update cursor
@@ -96,9 +153,11 @@ func (f *InputField) SetFocused(v bool) {
 	}
 }
 
-func (f *InputField) SetTheme(theme *Theme) {
-	f.Theme = theme
+func (f *InputField) SetStyle(style tcell.Style) {
+	f.style = style
 }
+
+func (f *InputField) SetTheme(theme *Theme) {}
 
 func (f *InputField) GetPos() (int, int) {
 	return f.x, f.y
@@ -141,8 +200,11 @@ func (f *InputField) HandleEvent(event tcell.Event) bool {
 		// Inserting
 		case tcell.KeyRune:
 			ch := ev.Rune()
-			f.Text += string(ch)
-			f.SetCursorPos(f.cursorPos + 1)
+			if bytesLen := utf8.RuneLen(ch); bytesLen > 0 {
+				bytes := make([]byte, bytesLen)
+				utf8.EncodeRune(bytes, ch)
+				f.Insert(bytes)
+			}
 		default:
 			return false
 		}

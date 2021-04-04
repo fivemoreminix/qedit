@@ -34,7 +34,7 @@ func NewFileSelectorDialog(screen *tcell.Screen, title string, mustExist bool, t
 		title: title,
 	}
 
-	dialog.inputField = NewInputField(screen, "", theme)
+	dialog.inputField = NewInputField(screen, []byte{}, theme.GetOrDefault("Window")) // Use window's theme for InputField
 	dialog.confirmButton = NewButton("Confirm", theme, dialog.onConfirm)
 	dialog.cancelButton = NewButton("Cancel", theme, cancelCallback)
 	dialog.tabOrder = []Component{dialog.inputField, dialog.cancelButton, dialog.confirmButton}
@@ -45,7 +45,7 @@ func NewFileSelectorDialog(screen *tcell.Screen, title string, mustExist bool, t
 // onConfirm is a callback called by the confirm button.
 func (d *FileSelectorDialog) onConfirm() {
 	if d.FilesChosenCallback != nil {
-		files := strings.Split(d.inputField.Text, ",") // Split input by commas
+		files := strings.Split(string(d.inputField.Buffer), ",") // Split input by commas
 		for i := range files {
 			files[i] = strings.TrimSpace(files[i]) // Trim all strings in slice
 		}
@@ -80,7 +80,7 @@ func (d *FileSelectorDialog) SetFocused(v bool) {
 
 func (d *FileSelectorDialog) SetTheme(theme *Theme) {
 	d.Theme = theme
-	d.inputField.SetTheme(theme)
+	d.inputField.SetStyle(theme.GetOrDefault("Window"))
 	d.confirmButton.SetTheme(theme)
 	d.cancelButton.SetTheme(theme)
 }
