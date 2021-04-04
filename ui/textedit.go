@@ -401,19 +401,25 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 		if line < bufferLines { // Only index buffer if we are within it...
 			lineNumStr = strconv.Itoa(line + 1) // Only set for lines within the buffer (not view)
 
-			var lineBytes []byte = t.Buffer.Line(line) // Line to be drawn
-			var lineTabs  [128]int // Rune index for each hard tab '\t' in lineBytes
-			var tabs      int // Length of lineTabs (number of hard tabs)
+			var origLineBytes []byte = t.Buffer.Line(line)
+			var lineBytes []byte = origLineBytes // Line to be drawn
+
+			// When iterating lineTabs: the value at i is
+			// the rune index the tab was found at.
+//			var lineTabs  [128]int // Rune index for each hard tab '\t' in lineBytes
+//			var tabs      int // Length of lineTabs (number of hard tabs)
 			if t.UseHardTabs {
-				var i int
-				for i < len(lineBytes) {
-					r, size := utf8.DecodeRune(lineBytes[i:])
-					if r == '\t' {
-						lineTabs[tabs] = i
-						tabs++
-					}
-					i += size
-				}
+//				var ri int // rune index
+//				var i int
+//				for i < len(lineBytes) {
+//					r, size := utf8.DecodeRune(lineBytes[i:])
+//					if r == '\t' {
+//						lineTabs[tabs] = ri
+//						tabs++
+//					}
+//					i += size
+//					ri++
+//				}
 				lineBytes = bytes.ReplaceAll(lineBytes, []byte{'\t'}, tabBytes)
 			}
 
@@ -434,13 +440,35 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 			tabOffsetAtRuneIdx := func(idx int) int {
 				var count int
-				for i := range lineTabs {
-					if i >= tabs || lineTabs[i] >= idx {
-						break
+				var i     int
+				for i < len(origLineBytes) {
+					r, size := utf8.DecodeRune(origLineBytes[i:])
+					if r == '\t' {
+						count++
 					}
-					count++
+					i += size
 				}
 				return count * (t.TabSize - 1)
+			}
+
+			// origRuneIdx converts a rune index from lineBytes to a runeIndex from origLineBytes
+			// not affected by the hard tabs becoming 4 or 8 spaces.
+			origRuneIdx := func(idx int) int { // returns the idx that is not mutated by hard tabs
+				var ridx int // new rune idx
+				var i    int // byte index
+				for idx > 0 {
+					r, size := utf8.DecodeRune(origLineBytes[i:])
+					if r == '\t' {
+						idx -= t.TabSize
+					} else {
+						idx--
+					}
+					if idx >= 0 { // causes ridx = 0, when idx = 3
+						ridx++
+					}
+					i += size
+				}
+				return ridx
 			}
 
 			for col < t.x + t.width { // For each column in view...
@@ -460,11 +488,12 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 					// Determine whether we select the current rune. Also only select runes within
 					// the line bytes range.
 					if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine { // If we're part of a selection...
+						_origRuneIdx := origRuneIdx(runeIdx)
 						if line == t.selection.StartLine { // If selection starts at this line...
-							if runeIdx-tabOffsetAtRuneIdx >= t.selection.StartCol { // And we're at or past the start col...
+							if _origRuneIdx >= t.selection.StartCol { // And we're at or past the start col...
 								// If the start line is also the end line...
 								if line == t.selection.EndLine {
-									if runeIdx-tabOffsetAtRuneIdx <= t.selection.EndCol { // And we're before the end of that...
+									if _origRuneIdx <= t.selection.EndCol { // And we're before the end of that...
 										selected = true
 									}
 								} else { // Definitely highlight
@@ -472,7 +501,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 								}
 							}
 						} else if line == t.selection.EndLine { // If selection ends at this line...
-							if runeIdx-tabOffsetAtRuneIdx <= t.selection.EndCol { // And we're at or before the end col...
+							if _origRuneIdx <= t.selection.EndCol { // And we're at or before the end col...
 								selected = true
 							}
 						} else { // We're between the start and the end lines, definitely highlight.
