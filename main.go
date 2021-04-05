@@ -85,9 +85,11 @@ func saveAs() {
 		}
 		te.Dirty = false
 
+		te.FilePath = filePaths[0]
+		tab.Name = filePaths[0]
+
 		dialog = nil // Hide the file selector
 		changeFocus(tabContainer)
-		tab.Name = filePaths[0]
 	}
 
 	dialog = ui.NewFileSelectorDialog(
