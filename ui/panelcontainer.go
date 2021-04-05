@@ -77,12 +77,19 @@ func (c *PanelContainer) SplitSelected(kind SplitKind, item Component) {
 	}
 
 	// It should be asserted that whatever is selected is either PanelKindEmpty or PanelKindSingle
+
+	(**c.selected).Left = &Panel{Parent: *c.selected, Left: (**c.selected).Left, Kind: PanelKindSingle}
 	if item == nil {
 		(**c.selected).Right = &Panel{Parent: *c.selected, Kind: PanelKindEmpty}
 	} else {
 		(**c.selected).Right = &Panel{Parent: *c.selected, Left: item, Kind: PanelKindSingle}
 	}
 	(**c.selected).Kind = PanelKind(kind)
+	if kind == SplitVertical {
+		(**c.selected).SplitAt = (**c.selected).height / 2
+	} else {
+		(**c.selected).SplitAt = (**c.selected).width / 2
+	}
 	(*c.selected).UpdateSplits()
 	(*c.selected).SetFocused(false)
 	panel := (**c.selected).Left.(*Panel) // TODO: watch me... might be a bug lurking in a hidden copy here

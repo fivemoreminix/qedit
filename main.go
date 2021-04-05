@@ -290,11 +290,11 @@ func main() {
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split Top", QuickChar: 6, Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Split Bottom", QuickChar: 6, Callback: func() {
-
+		panelContainer.SplitSelected(ui.SplitVertical, ui.NewTabContainer(&theme))
 	}}, &ui.ItemEntry{Name: "Split Left", QuickChar: 6, Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Split Right", QuickChar: 6, Callback: func() {
-
+		panelContainer.SplitSelected(ui.SplitHorizontal, ui.NewTabContainer(&theme))
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Move", Shortcut: "Ctrl+M", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Resize", Shortcut: "Ctrl+R", Callback: func() {
