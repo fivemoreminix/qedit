@@ -59,6 +59,7 @@ func (c *PanelContainer) DeleteSelected() Component {
 		(*p).Kind = PanelKindSingle
 		(*c.selected) = nil // Tell garbage collector to come pick up selected (being safe)
 		c.selected = &p
+		(*c.selected).UpdateSplits()
 		return item
 	}
 }
@@ -83,6 +84,10 @@ func (c *PanelContainer) SplitSelected(kind SplitKind, item Component) {
 	c.selected = &panel
 }
 
+func (c *PanelContainer) GetSelected() Component {
+	return (**c.selected).Left
+}
+
 func (c *PanelContainer) SetSelected(item Component) {
 	if !(*c.selected).IsLeaf() {
 		panic("selected is not leaf")
@@ -90,6 +95,7 @@ func (c *PanelContainer) SetSelected(item Component) {
 
 	(**c.selected).Left = item
 	(**c.selected).Kind = PanelKindSingle
+	(*c.selected).UpdateSplits()
 }
 
 func (c *PanelContainer) FloatSelected() {
