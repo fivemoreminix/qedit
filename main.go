@@ -347,8 +347,19 @@ func main() {
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Go to line...", Shortcut: "Ctrl+G", Callback: func() {
 		te := getActiveTextEdit()
 		if te != nil {
-			line := 50
-			te.SetLineCol(line-1, 0)
+			callback := func(line int) {
+				te := getActiveTextEdit()
+				te.SetLineCol(line-1, 0)
+				// Hide dialog
+				dialog = nil
+				changeFocus(tabContainer)
+			}
+			dialog = NewGotoLineDialog(screen, &theme, callback, func() {
+				// Dialog canceled
+				dialog = nil
+				changeFocus(tabContainer)
+			})
+			changeFocus(dialog)
 		}
 	}}})
 
