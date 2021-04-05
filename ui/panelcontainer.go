@@ -57,9 +57,13 @@ func (c *PanelContainer) DeleteSelected() Component {
 			(*p).Right = nil
 		}
 		(*p).Kind = PanelKindSingle
+
+		(*c.selected).SetFocused(false) // Unfocus item
 		(*c.selected) = nil // Tell garbage collector to come pick up selected (being safe)
 		c.selected = &p
 		(*c.selected).UpdateSplits()
+		(*c.selected).SetFocused(c.focused)
+
 		return item
 	}
 }
@@ -80,8 +84,10 @@ func (c *PanelContainer) SplitSelected(kind SplitKind, item Component) {
 	}
 	(**c.selected).Kind = PanelKind(kind)
 	(*c.selected).UpdateSplits()
+	(*c.selected).SetFocused(false)
 	panel := (**c.selected).Left.(*Panel) // TODO: watch me... might be a bug lurking in a hidden copy here
 	c.selected = &panel
+	(*c.selected).SetFocused(c.focused)
 }
 
 func (c *PanelContainer) GetSelected() Component {
@@ -112,7 +118,7 @@ func (c *PanelContainer) Draw(s tcell.Screen) {
 
 func (c *PanelContainer) SetFocused(v bool) {
 	c.focused = v
-	// TODO: update focused on selected children
+	(*c.selected).SetFocused(v)
 }
 
 func (c *PanelContainer) SetTheme(theme *Theme) {
@@ -147,5 +153,5 @@ func (c *PanelContainer) SetSize(width, height int) {
 
 func (c *PanelContainer) HandleEvent(event tcell.Event) bool {
 	// Call handle event on selected Panel
-	return false
+	return (*c.selected).HandleEvent(event)
 }
