@@ -59,12 +59,24 @@ func (c *PanelContainer) DeleteSelected() Component {
 		(*p).Kind = PanelKindSingle
 
 		(*c.selected).SetFocused(false) // Unfocus item
-		(*c.selected) = nil // Tell garbage collector to come pick up selected (being safe)
 		c.selected = &p
 		(*c.selected).UpdateSplits()
 		(*c.selected).SetFocused(c.focused)
 
 		return item
+	}
+}
+
+// SwapNeighborsSelected swaps two Left and Right child Panels of a vertical or
+// horizontally split Panel. This is necessary to achieve a "split top" or
+// "split left" effect, as Panels only split open to the bottom or right.
+func (c *PanelContainer) SwapNeighborsSelected() {
+	parent := (**c.selected).Parent
+	if parent != nil {
+		left := (*parent).Left
+		(*parent).Left = parent.Right
+		(*parent).Right = left
+		parent.UpdateSplits() // Updates position and size of reordered children
 	}
 }
 
