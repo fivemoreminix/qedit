@@ -59,8 +59,6 @@ func (c *PanelContainer) DeleteSelected() Component {
 			(*c.selected).SetFocused(false) // Unfocus item
 		}
 
-		// we're shifting panel right to left,
-		// need to focus left
 		if p != nil {
 			if *c.selected == (*p).Left { // If we're deleting the parent's Left
 				(*p).Left = (*p).Right
@@ -69,18 +67,8 @@ func (c *PanelContainer) DeleteSelected() Component {
 				(*p).Right = nil
 			}
 
-			if (*p).Left != nil { // Left == panel  ; SHOULD NOT BE PANEL
-				// asserting left is panel:
-				// if left is not a Leaf !.IsLeaf():
-				//   make the parent match the left:
-				//   p.Left = panel's Left
-				//   p.Right = panel's Right
-				//   p.Kind = panel's kind
-				// else:
-				//   parent left = panel's left
-				//   parent's kind = panel's kind
+			if (*p).Left != nil {
 				panel := (*p).Left.(*Panel)
-
 				(*p).Left = (*panel).Left
 				(*p).Right = (*panel).Right
 				(*p).Kind = (*panel).Kind
