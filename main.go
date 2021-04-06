@@ -199,6 +199,10 @@ func main() {
 	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New File", Shortcut: "Ctrl+N", Callback: func() {
 		textEdit := ui.NewTextEdit(screen, "", []byte{}, &theme) // No file path, no contents
 		tabContainer := getActiveTabContainer()
+		if tabContainer == nil {
+			tabContainer = ui.NewTabContainer(&theme)
+			panelContainer.SetSelected(tabContainer)
+		}
 		tabContainer.AddTab("noname", textEdit)
 		tabContainer.FocusTab(tabContainer.GetTabCount() - 1)
 		changeFocus(panelContainer)
@@ -224,6 +228,10 @@ func main() {
 				}
 
 				textEdit := ui.NewTextEdit(screen, path, bytes, &theme)
+				if tabContainer == nil {
+					tabContainer = ui.NewTabContainer(&theme)
+					panelContainer.SetSelected(tabContainer)
+				}
 				tabContainer.AddTab(path, textEdit)
 			}
 
@@ -276,7 +284,12 @@ func main() {
 			if tabContainer != nil && tabContainer.GetTabCount() > 0 {
 				tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
 			} else { // No tabs open; close the editor
-				closing = true
+				// if the selected is root: close editor. otherwise close panel
+				if panelContainer.IsRootSelected() {
+					closing = true
+				} else {
+					panelContainer.DeleteSelected()
+				}
 			}
 		}}})
 

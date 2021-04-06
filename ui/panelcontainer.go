@@ -35,7 +35,9 @@ func (c *PanelContainer) ClearSelected() Component {
 	item := (**c.selected).Left
 	(**c.selected).Left = nil
 	(**c.selected).Kind = PanelKindEmpty
-	(*c.selected).UpdateSplits()
+	if p := (**c.selected).Parent; p != nil {
+		p.UpdateSplits()
+	}
 	return item
 }
 
@@ -52,6 +54,13 @@ func (c *PanelContainer) DeleteSelected() Component {
 	} else {
 		item := (**c.selected).Left
 		p := (**c.selected).Parent
+
+		if c.focused {
+			(*c.selected).SetFocused(false) // Unfocus item
+		}
+
+		// we're shifting panel right to left,
+		// need to focus left
 		if p != nil {
 			if *c.selected == (*p).Left { // If we're deleting the parent's Left
 				(*p).Left = (*p).Right
@@ -59,16 +68,28 @@ func (c *PanelContainer) DeleteSelected() Component {
 			} else { // Deleting parent's Right
 				(*p).Right = nil
 			}
-			(*p).Kind = PanelKindSingle
 
-			if c.focused {
-				(*c.selected).SetFocused(false) // Unfocus item
+			if (*p).Left != nil { // Left == panel  ; SHOULD NOT BE PANEL
+				// asserting left is panel:
+				// if left is not a Leaf !.IsLeaf():
+				//   make the parent match the left:
+				//   p.Left = panel's Left
+				//   p.Right = panel's Right
+				//   p.Kind = panel's kind
+				// else:
+				//   parent left = panel's left
+				//   parent's kind = panel's kind
+				panel := (*p).Left.(*Panel)
+
+				(*p).Left = (*panel).Left
+				(*p).Right = (*panel).Right
+				(*p).Kind = (*panel).Kind
+			} else {
+				(*p).Kind = PanelKindEmpty
 			}
 			c.selected = &p
+			(*p).UpdateSplits()
 		} else if c.floatingMode { // Deleting a floating Panel without a parent
-			if c.focused {
-				c.floating[0].SetFocused(false) // Unfocus Panel and item
-			}
 			c.floating[0] = nil
 			copy(c.floating, c.floating[1:]) // Shift items to front
 			c.floating = c.floating[:len(c.floating)-1] // Shrink slice's len by one
@@ -81,7 +102,7 @@ func (c *PanelContainer) DeleteSelected() Component {
 		} else {
 			panic("Panel does not have parent and is not floating")
 		}
-		(*c.selected).UpdateSplits()
+		
 		if c.focused {
 			(*c.selected).SetFocused(c.focused)
 		}
@@ -106,7 +127,7 @@ func (c *PanelContainer) SwapNeighborsSelected() {
 // Turns the selected Panel into a split panel, moving its contents to its Left field,
 // and putting the given Panel at the Right field. `panel` cannot be nil.
 func (c *PanelContainer) splitSelectedWithPanel(kind SplitKind, panel *Panel) {
-	(**c.selected).Left = &Panel{Parent: *c.selected, Left: (**c.selected).Left, Kind: PanelKindSingle}
+	(**c.selected).Left = &Panel{Parent: *c.selected, Left: (**c.selected).Left, Kind: (**c.selected).Kind}
 	(**c.selected).Right = panel
 	(**c.selected).Right.(*Panel).Parent = *c.selected
 
@@ -145,7 +166,14 @@ func (c *PanelContainer) SplitSelected(kind SplitKind, item Component) {
 	}
 }
 
+func (c *PanelContainer) IsRootSelected() bool {
+	return *c.selected == c.root
+}
+
 func (c *PanelContainer) GetSelected() Component {
+	if !(*c.selected).IsLeaf() {
+		panic("selected is not leaf")
+	}
 	return (**c.selected).Left
 }
 
