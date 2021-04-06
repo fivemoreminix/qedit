@@ -56,7 +56,10 @@ func showErrorDialog(title string, message string, callback func()) {
 }
 
 func getActiveTabContainer() *ui.TabContainer {
-	return panelContainer.GetSelected().(*ui.TabContainer)
+	if panelContainer.GetSelected() != nil {
+		return panelContainer.GetSelected().(*ui.TabContainer)
+	}
+	return nil
 }
 
 // returns nil if no TextEdit is visible
@@ -270,7 +273,7 @@ func main() {
 	}}, &ui.ItemEntry{Name: "Save As...", QuickChar: 5, Callback: saveAs}, &ui.ItemSeparator{},
 		&ui.ItemEntry{Name: "Close", Shortcut: "Ctrl+Q", Callback: func() {
 			tabContainer := getActiveTabContainer()
-			if tabContainer.GetTabCount() > 0 {
+			if tabContainer != nil && tabContainer.GetTabCount() > 0 {
 				tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
 			} else { // No tabs open; close the editor
 				closing = true
@@ -301,8 +304,11 @@ func main() {
 
 	}}, &ui.ItemEntry{Name: "Resize", Shortcut: "Ctrl+R", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Float", Callback: func() {
-
+	}}, &ui.ItemEntry{Name: "Toggle Floating", Callback: func() {
+		panelContainer.FloatSelected()
+		if !panelContainer.GetFloatingFocused() {
+			panelContainer.SetFloatingFocused(true)
+		}
 	}}})
 
 	editMenu := ui.NewMenu("Edit", 0, &theme)
