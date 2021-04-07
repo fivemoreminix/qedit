@@ -22,10 +22,10 @@ type PanelContainer struct {
 func NewPanelContainer(theme *Theme) *PanelContainer {
 	root := &Panel{Kind: PanelKindEmpty}
 	return &PanelContainer{
-		root:            root,
-		floating:        make([]*Panel, 0, 3),
-		selected:        &root,
-		theme:           theme,
+		root:     root,
+		floating: make([]*Panel, 0, 3),
+		selected: &root,
+		theme:    theme,
 	}
 }
 
@@ -41,6 +41,18 @@ func (c *PanelContainer) ClearSelected() Component {
 	return item
 }
 
+// changeSelected sets c.selected to `new`. It also refocuses the Panel.
+// Prefer to use this as opposed to performing the instructions manually.
+func (c *PanelContainer) changeSelected(new **Panel) {
+	if c.focused {
+		(*c.selected).SetFocused(false)
+	}
+	c.selected = new
+	if c.focused {
+		(*c.selected).SetFocused(true)
+	}
+}
+
 // DeleteSelected deletes the selected Panel and returns its child Component.
 // If the selected Panel is the root Panel, ClearSelected() is called, instead.
 func (c *PanelContainer) DeleteSelected() Component {
@@ -54,10 +66,6 @@ func (c *PanelContainer) DeleteSelected() Component {
 	} else {
 		item := (**c.selected).Left
 		p := (**c.selected).Parent
-
-		if c.focused {
-			(*c.selected).SetFocused(false) // Unfocus item
-		}
 
 		if p != nil {
 			if *c.selected == (*p).Left { // If we're deleting the parent's Left
@@ -75,24 +83,21 @@ func (c *PanelContainer) DeleteSelected() Component {
 			} else {
 				(*p).Kind = PanelKindEmpty
 			}
-			c.selected = &p
+
+			c.changeSelected(&p)
 			(*p).UpdateSplits()
 		} else if c.floatingMode { // Deleting a floating Panel without a parent
 			c.floating[0] = nil
-			copy(c.floating, c.floating[1:]) // Shift items to front
+			copy(c.floating, c.floating[1:])            // Shift items to front
 			c.floating = c.floating[:len(c.floating)-1] // Shrink slice's len by one
 
 			if len(c.floating) <= 0 {
 				c.SetFloatingFocused(false)
 			} else {
-				c.selected = &c.floating[0]
+				c.changeSelected(&c.floating[0])
 			}
 		} else {
 			panic("Panel does not have parent and is not floating")
-		}
-		
-		if c.focused {
-			(*c.selected).SetFocused(c.focused)
 		}
 
 		return item
@@ -129,14 +134,8 @@ func (c *PanelContainer) splitSelectedWithPanel(kind SplitKind, panel *Panel) {
 	(*c.selected).UpdateSplits()
 
 	// Change selected from parent to the previously selected Panel on the Left
-	if c.focused {
-		(*c.selected).SetFocused(false)
-	}
 	panel = (**c.selected).Left.(*Panel)
-	c.selected = &panel
-	if c.focused {
-		(*c.selected).SetFocused(c.focused)
-	}
+	c.changeSelected(&panel)
 }
 
 // SplitSelected splits the selected Panel with the given Component `item`.
@@ -197,25 +196,13 @@ func (c *PanelContainer) GetFloatingFocused() bool {
 func (c *PanelContainer) SetFloatingFocused(v bool) bool {
 	if v {
 		if len(c.floating) > 0 {
-			if c.focused {
-				(*c.selected).SetFocused(false) // Unfocus in-tree window
-			}
 			c.lastNonFloatingSelected = c.selected
-			c.selected = &c.floating[0]
-			if c.focused {
-				(*c.selected).SetFocused(true)
-			}
+			c.changeSelected(&c.floating[0])
 			c.floatingMode = true
 			return true
 		}
 	} else {
-		if c.focused {
-			(*c.selected).SetFocused(false) // Unfocus floating window
-		}
-		c.selected = c.lastNonFloatingSelected
-		if c.focused {
-			(*c.selected).SetFocused(true) // Focus in-tree window
-		}
+		c.changeSelected(c.lastNonFloatingSelected)
 		c.floatingMode = false
 	}
 	return false
@@ -232,14 +219,12 @@ func (c *PanelContainer) FloatSelected() {
 		return
 	}
 
-	panel := *c.selected
 	c.DeleteSelected()
+	(**c.selected).Parent = nil
 	(*c.selected).UpdateSplits()
-	panel.Parent = nil
-	panel.UpdateSplits()
 
-	c.floating = append(c.floating, panel)
-	c.raiseFloating(len(c.floating)-1)
+	c.floating = append(c.floating, *c.selected)
+	c.raiseFloating(len(c.floating) - 1)
 }
 
 // UnfloatSelected moves any selected floating Panel to the normal tree that is
@@ -257,10 +242,9 @@ func (c *PanelContainer) UnfloatSelected(kind SplitKind) bool {
 		return false
 	}
 
-	panel := *c.selected
 	c.DeleteSelected()
 	c.SetFloatingFocused(false)
-	c.splitSelectedWithPanel(kind, panel)
+	c.splitSelectedWithPanel(kind, *c.selected)
 
 	// Try to return to floating focus
 	return c.SetFloatingFocused(true)
@@ -270,7 +254,7 @@ func (c *PanelContainer) selectNext(rightMost bool) {
 	var nextIsIt bool
 	c.root.EachLeaf(rightMost, func(p *Panel) bool {
 		if nextIsIt {
-			c.selected = &p
+			c.changeSelected(&p)
 			nextIsIt = false
 			return true
 		} else if p == *c.selected {
@@ -284,7 +268,7 @@ func (c *PanelContainer) selectNext(rightMost bool) {
 	// of the tree. We need to wrap around to the first leaf.
 	if nextIsIt {
 		// This gets the first leaf in left-most or right-most order
-		c.root.EachLeaf(rightMost, func(p *Panel) bool { c.selected = &p; return true })
+		c.root.EachLeaf(rightMost, func(p *Panel) bool { c.changeSelected(&p); return true })
 	}
 }
 
@@ -298,7 +282,7 @@ func (c *PanelContainer) SelectPrev() {
 
 func (c *PanelContainer) Draw(s tcell.Screen) {
 	c.root.Draw(s)
-	for i := len(c.floating)-1; i >= 0; i-- {
+	for i := len(c.floating) - 1; i >= 0; i-- {
 		c.floating[i].Draw(s)
 	}
 }

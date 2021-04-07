@@ -6,10 +6,10 @@ import "github.com/gdamore/tcell/v2"
 type PanelKind uint8
 
 const (
-	PanelKindEmpty PanelKind = iota
-	PanelKindSingle // Single item. Takes up all available space
-	PanelKindSplitVert // Items are above or below eachother
-	PanelKindSplitHor // Items are left or right of eachother
+	PanelKindEmpty     PanelKind = iota
+	PanelKindSingle              // Single item. Takes up all available space
+	PanelKindSplitVert           // Items are above or below eachother
+	PanelKindSplitHor            // Items are left or right of eachother
 )
 
 // A Panel represents a container for a split view between two items. The Kind
