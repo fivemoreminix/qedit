@@ -266,6 +266,36 @@ func (c *PanelContainer) UnfloatSelected(kind SplitKind) bool {
 	return c.SetFloatingFocused(true)
 }
 
+func (c *PanelContainer) selectNext(rightMost bool) {
+	var nextIsIt bool
+	c.root.EachLeaf(rightMost, func(p *Panel) bool {
+		if nextIsIt {
+			c.selected = &p
+			nextIsIt = false
+			return true
+		} else if p == *c.selected {
+			nextIsIt = true
+		}
+		return false
+	})
+
+	// This boolean must be false if we found the next leaf.
+	// Therefore, if it is true, c.selected was the last leaf
+	// of the tree. We need to wrap around to the first leaf.
+	if nextIsIt {
+		// This gets the first leaf in left-most or right-most order
+		c.root.EachLeaf(rightMost, func(p *Panel) bool { c.selected = &p; return true })
+	}
+}
+
+func (c *PanelContainer) SelectNext() {
+	c.selectNext(false)
+}
+
+func (c *PanelContainer) SelectPrev() {
+	c.selectNext(true)
+}
+
 func (c *PanelContainer) Draw(s tcell.Screen) {
 	c.root.Draw(s)
 	for i := len(c.floating)-1; i >= 0; i-- {

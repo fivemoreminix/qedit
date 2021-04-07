@@ -69,27 +69,42 @@ func (p *Panel) UpdateSplits() {
 }
 
 // Same as EachLeaf, but returns true if any call to `f` returned true.
-func (p *Panel) eachLeaf(f func(*Component) bool) bool {
+func (p *Panel) eachLeaf(rightMost bool, f func(*Panel) bool) bool {
 	switch p.Kind {
+	case PanelKindEmpty:
+		fallthrough
 	case PanelKindSingle:
-		return f(&p.Left)
+		return f(p)
+
 	case PanelKindSplitVert:
 		fallthrough
 	case PanelKindSplitHor:
-		if p.Left.(*Panel).eachLeaf(f) {
-			return true
+		if rightMost {
+			if p.Right.(*Panel).eachLeaf(rightMost, f) {
+				return true
+			}
+			return p.Left.(*Panel).eachLeaf(rightMost, f)
+		} else {
+			if p.Left.(*Panel).eachLeaf(rightMost, f) {
+				return true
+			}
+			return p.Right.(*Panel).eachLeaf(rightMost, f)
 		}
-		return p.Right.(*Panel).eachLeaf(f)
+
 	default:
 		return false
 	}
 }
 
-// EachLeaf visits the entire tree in left-most order, and calls function `f`
-// at each individual Component (never for Panels). If the function `f` returns
-// true, then visiting stops.
-func (p *Panel) EachLeaf(f func(*Component) bool) {
-	p.eachLeaf(f)
+// EachLeaf visits the entire tree, and calls function `f` at each leaf Panel.
+// If the function `f` returns true, then visiting stops. if `rtl` is true,
+// the tree is traversed in right-most order. The default is to traverse
+// in left-most order.
+//
+// The caller of this function can safely assert that Panel's Kind is always
+// either `PanelKindSingle` or `PanelKindEmpty`.
+func (p *Panel) EachLeaf(rightMost bool, f func(*Panel) bool) {
+	p.eachLeaf(rightMost, f)
 }
 
 // IsLeaf returns whether the Panel is a leaf or not. A leaf is a panel with

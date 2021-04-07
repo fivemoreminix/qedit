@@ -295,8 +295,12 @@ func main() {
 
 	panelMenu := ui.NewMenu("Panel", 0, &theme)
 
-	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Up", QuickChar: -1, Shortcut: "Alt+Up", Callback: func() {
-
+	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Next", Shortcut: "Alt+.", Callback: func() {
+		panelContainer.SelectNext()
+	}}, &ui.ItemEntry{Name: "Focus Prev", Shortcut: "Alt+,", Callback: func() {
+		panelContainer.SelectPrev()
+	}}, &ui.ItemEntry{Name: "Focus Up", QuickChar: -1, Shortcut: "Alt+Up", Callback: func() {
+		
 	}}, &ui.ItemEntry{Name: "Focus Down", QuickChar: -1, Shortcut: "Alt+Down", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Focus Left", QuickChar: -1, Shortcut: "Alt+Left", Callback: func() {
