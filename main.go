@@ -312,16 +312,20 @@ func main() {
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split Top", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitVertical, ui.NewTabContainer(&theme))
 		panelContainer.SwapNeighborsSelected()
+		panelContainer.SelectPrev()
 		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Bottom", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitVertical, ui.NewTabContainer(&theme))
+		panelContainer.SelectNext()
 		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Left", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitHorizontal, ui.NewTabContainer(&theme))
 		panelContainer.SwapNeighborsSelected()
+		panelContainer.SelectPrev()
 		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Right", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitHorizontal, ui.NewTabContainer(&theme))
+		panelContainer.SelectNext()
 		changeFocus(panelContainer)
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Move", Shortcut: "Ctrl+M", Callback: func() {
 
