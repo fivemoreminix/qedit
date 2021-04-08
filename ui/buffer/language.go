@@ -4,6 +4,7 @@ type Syntax uint8
 
 const (
 	Default Syntax = iota
+	Column // Not necessarily a Syntax; useful for Colorscheming editor column
 	Keyword
 	String
 	Special

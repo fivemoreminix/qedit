@@ -45,11 +45,10 @@ type TextEdit struct {
 	curx, cury       int // Zero-based: cursor points before the character at that position.
 	prevCurCol       int // Previous maximum column the cursor was at, when the user pressed left or right
 	scrollx, scrolly int // X and Y offset of view, known as scroll
+	theme            *Theme
 
 	selection  Region // Selection: selectMode determines if it should be used
 	selectMode bool   // Whether the user is actively selecting text
-
-	Theme *Theme
 }
 
 // New will initialize the buffer using the given 'contents'. If the 'filePath' or 'FilePath' is empty,
@@ -62,8 +61,9 @@ func NewTextEdit(screen *tcell.Screen, filePath string, contents []byte, theme *
 		UseHardTabs: true,
 		TabSize:     4,
 		FilePath:    filePath,
+
 		screen:      screen,
-		Theme:       theme,
+		theme:       theme,
 	}
 	te.SetContents(contents)
 	return te
@@ -117,6 +117,7 @@ loop:
 
 	colorscheme := &buffer.Colorscheme{
 		buffer.Default: tcell.Style{}.Foreground(tcell.ColorLightGray).Background(tcell.ColorBlack),
+		buffer.Column:  tcell.Style{}.Foreground(tcell.ColorDarkGray).Background(tcell.ColorBlack),
 		buffer.Comment: tcell.Style{}.Foreground(tcell.ColorGray).Background(tcell.ColorBlack),
 		buffer.String:  tcell.Style{}.Foreground(tcell.ColorOlive).Background(tcell.ColorBlack),
 		buffer.Keyword: tcell.Style{}.Foreground(tcell.ColorNavy).Background(tcell.ColorBlack),
@@ -359,10 +360,10 @@ func (t *TextEdit) CursorRight() {
 
 // getColumnWidth returns the width of the line numbers column if it is present.
 func (t *TextEdit) getColumnWidth() int {
-	columnWidth := 0
+	var columnWidth int
 	if t.LineNumbers {
 		// Set columnWidth to max count of line number digits
-		columnWidth = Max(2, len(strconv.Itoa(t.Buffer.Lines()))) // Column has minimum width of 2
+		columnWidth = Max(3, 1+len(strconv.Itoa(t.Buffer.Lines()))) // Column has minimum width of 2
 	}
 	return columnWidth
 }
@@ -383,8 +384,8 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 	columnWidth := t.getColumnWidth()
 	bufferLines := t.Buffer.Lines()
 
-	selectedStyle := t.Theme.GetOrDefault("TextEditSelected")
-	columnStyle := t.Theme.GetOrDefault("TextEditColumn")
+	selectedStyle := t.theme.GetOrDefault("TextEditSelected")
+	columnStyle := t.Highlighter.Colorscheme.GetStyle(buffer.Column)
 
 	t.Highlighter.UpdateInvalidatedLines(t.scrolly, t.scrolly+(t.height-1))
 
@@ -408,22 +409,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 			var origLineBytes []byte = t.Buffer.Line(line)
 			var lineBytes []byte = origLineBytes // Line to be drawn
 
-			// When iterating lineTabs: the value at i is
-			// the rune index the tab was found at.
-			//			var lineTabs  [128]int // Rune index for each hard tab '\t' in lineBytes
-			//			var tabs      int // Length of lineTabs (number of hard tabs)
 			if t.UseHardTabs {
-				//				var ri int // rune index
-				//				var i int
-				//				for i < len(lineBytes) {
-				//					r, size := utf8.DecodeRune(lineBytes[i:])
-				//					if r == '\t' {
-				//						lineTabs[tabs] = ri
-				//						tabs++
-				//					}
-				//					i += size
-				//					ri++
-				//				}
 				lineBytes = bytes.ReplaceAll(lineBytes, []byte{'\t'}, tabBytes)
 			}
 
@@ -435,7 +421,6 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 			col := t.x + columnWidth
 			var runeIdx int // Index into lineStr (as runes) we draw the next character at
 
-			// REWRITE OF SCROLL FUNC:
 			for runeIdx < t.scrollx && byteIdx < len(lineBytes) {
 				_, size := utf8.DecodeRune(lineBytes[byteIdx:]) // Respect UTF-8
 				byteIdx += size
@@ -545,7 +530,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 			}
 		}
 
-		columnStr := fmt.Sprintf("%s%s", strings.Repeat(" ", columnWidth-len(lineNumStr)), lineNumStr) // Right align line number
+		columnStr := fmt.Sprintf("%s%s│", strings.Repeat(" ", columnWidth-len(lineNumStr)-1), lineNumStr) // Right align line number
 
 		DrawStr(s, t.x, lineY, columnStr, columnStyle) // Draw column
 	}
@@ -566,7 +551,7 @@ func (t *TextEdit) SetFocused(v bool) {
 }
 
 func (t *TextEdit) SetTheme(theme *Theme) {
-	t.Theme = theme
+	t.theme = theme
 }
 
 // GetPos gets the position of the TextEdit.
