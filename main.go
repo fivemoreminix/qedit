@@ -28,7 +28,6 @@ var (
 	screen *tcell.Screen
 
 	menuBar        *ui.MenuBar
-//	tabContainer *ui.TabContainer
 	panelContainer *ui.PanelContainer
 	dialog         ui.Component // nil if not present (has exclusive focus)
 
@@ -143,9 +142,6 @@ func main() {
 	var closing bool
 	sizex, sizey := s.Size()
 
-//	tabContainer = ui.NewTabContainer(&theme)
-//	tabContainer.SetPos(0, 1)
-//	tabContainer.SetSize(sizex, sizey-2)
 	panelContainer = ui.NewPanelContainer(&theme)
 	panelContainer.SetPos(0, 1)
 	panelContainer.SetSize(sizex, sizey-2)
@@ -283,7 +279,7 @@ func main() {
 			tabContainer := getActiveTabContainer()
 			if tabContainer != nil && tabContainer.GetTabCount() > 0 {
 				tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
-			} else { // No tabs open; close the editor
+			} else {
 				// if the selected is root: close editor. otherwise close panel
 				if panelContainer.IsRootSelected() {
 					closing = true
@@ -427,9 +423,6 @@ func main() {
 		//ui.DrawRect(screen, 0, 0, sizex, sizey, '▚', tcell.Style{}.Foreground(tcell.ColorGrey).Background(tcell.ColorBlack))
 		ui.DrawRect(s, 0, 1, sizex, sizey-1, ' ', tcell.Style{}.Background(tcell.ColorBlack))
 
-//		if tabContainer.GetTabCount() > 0 { // Draw the tab container only if a tab is open
-//			tabContainer.Draw(s)
-//		}
 		panelContainer.Draw(s)
 		menuBar.Draw(s)
 
