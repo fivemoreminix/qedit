@@ -9,14 +9,9 @@ import (
 // A FileSelectorDialog is a WindowContainer with an input and buttons for selecting files.
 // It can be used to open zero or more existing files, or select one non-existant file (for saving).
 type FileSelectorDialog struct {
+	Title               string
 	MustExist           bool           // Whether the dialog should have a user select an existing file.
 	FilesChosenCallback func([]string) // Returns slice of filenames selected. nil if user canceled.
-	Theme               *Theme
-
-	title         string
-	x, y          int
-	width, height int
-	focused       bool
 
 	tabOrder    []Component
 	tabOrderIdx int
@@ -24,14 +19,17 @@ type FileSelectorDialog struct {
 	inputField    *InputField
 	confirmButton *Button
 	cancelButton  *Button
+
+	baseComponent
 }
 
 func NewFileSelectorDialog(screen *tcell.Screen, title string, mustExist bool, theme *Theme, filesChosenCallback func([]string), cancelCallback func()) *FileSelectorDialog {
 	dialog := &FileSelectorDialog{
+		Title:               title,
 		MustExist:           mustExist,
 		FilesChosenCallback: filesChosenCallback,
-		Theme:               theme,
-		title:               title,
+
+		baseComponent: baseComponent{theme: theme},
 	}
 
 	dialog.inputField = NewInputField(screen, []byte{}, theme.GetOrDefault("Window")) // Use window's theme for InputField
@@ -57,12 +55,8 @@ func (d *FileSelectorDialog) SetCancelCallback(callback func()) {
 	d.cancelButton.Callback = callback
 }
 
-func (d *FileSelectorDialog) SetTitle(title string) {
-	d.title = title
-}
-
 func (d *FileSelectorDialog) Draw(s tcell.Screen) {
-	DrawWindow(s, d.x, d.y, d.width, d.height, d.title, d.Theme)
+	DrawWindow(s, d.x, d.y, d.width, d.height, d.Title, d.theme)
 
 	// Update positions of child components (dependent on size information that may not be available at SetPos() )
 	btnWidth, _ := d.confirmButton.GetSize()
@@ -79,14 +73,10 @@ func (d *FileSelectorDialog) SetFocused(v bool) {
 }
 
 func (d *FileSelectorDialog) SetTheme(theme *Theme) {
-	d.Theme = theme
+	d.theme = theme
 	d.inputField.SetStyle(theme.GetOrDefault("Window"))
 	d.confirmButton.SetTheme(theme)
 	d.cancelButton.SetTheme(theme)
-}
-
-func (d *FileSelectorDialog) GetPos() (int, int) {
-	return d.x, d.y
 }
 
 func (d *FileSelectorDialog) SetPos(x, y int) {
@@ -96,11 +86,7 @@ func (d *FileSelectorDialog) SetPos(x, y int) {
 }
 
 func (d *FileSelectorDialog) GetMinSize() (int, int) {
-	return Max(len(d.title), 8) + 2, 6
-}
-
-func (d *FileSelectorDialog) GetSize() (int, int) {
-	return d.width, d.height
+	return Max(len(d.Title), 8) + 2, 6
 }
 
 func (d *FileSelectorDialog) SetSize(width, height int) {

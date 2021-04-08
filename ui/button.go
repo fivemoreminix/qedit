@@ -9,19 +9,14 @@ import (
 type Button struct {
 	Text     string
 	Callback func()
-
-	x, y          int
-	width, height int
-	focused       bool
-
-	Theme *Theme
+	baseComponent
 }
 
 func NewButton(text string, theme *Theme, callback func()) *Button {
 	return &Button{
-		Text:     text,
-		Callback: callback,
-		Theme:    theme,
+		text,
+		callback,
+		baseComponent{theme: theme},
 	}
 }
 
@@ -32,23 +27,7 @@ func (b *Button) Draw(s tcell.Screen) {
 	} else {
 		str = fmt.Sprintf("  %s  ", b.Text)
 	}
-	DrawStr(s, b.x, b.y, str, b.Theme.GetOrDefault("Button"))
-}
-
-func (b *Button) SetFocused(v bool) {
-	b.focused = v
-}
-
-func (b *Button) SetTheme(theme *Theme) {
-	b.Theme = theme
-}
-
-func (b *Button) GetPos() (int, int) {
-	return b.x, b.y
-}
-
-func (b *Button) SetPos(x, y int) {
-	b.x, b.y = x, y
+	DrawStr(s, b.x, b.y, str, b.theme.GetOrDefault("Button"))
 }
 
 func (b *Button) GetMinSize() (int, int) {

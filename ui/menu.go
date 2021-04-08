@@ -74,19 +74,15 @@ func (m *Menu) GetShortcut() string {
 // A MenuBar is a horizontal list of menus.
 type MenuBar struct {
 	menus         []*Menu
-	x, y          int
-	width, height int
-	focused       bool
 	selected      int  // Index of selection in MenuBar
 	menusVisible  bool // Whether to draw the selected menu
-
-	Theme *Theme
+	baseComponent
 }
 
 func NewMenuBar(theme *Theme) *MenuBar {
 	return &MenuBar{
 		menus: make([]*Menu, 0, 6),
-		Theme: theme,
+		baseComponent: baseComponent{theme: theme},
 	}
 }
 
@@ -152,7 +148,7 @@ func (b *MenuBar) CursorRight() {
 
 // Draw renders the MenuBar and its sub-menus.
 func (b *MenuBar) Draw(s tcell.Screen) {
-	normalStyle := b.Theme.GetOrDefault("MenuBar")
+	normalStyle := b.theme.GetOrDefault("MenuBar")
 
 	// Draw menus based on whether b.focused and which is selected
 	DrawRect(s, b.x, b.y, b.width, 1, ' ', normalStyle)
@@ -160,7 +156,7 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	for i, item := range b.menus {
 		sty := normalStyle
 		if b.focused && b.selected == i {
-			sty = b.Theme.GetOrDefault("MenuBarSelected") // Use special style for selected item
+			sty = b.theme.GetOrDefault("MenuBarSelected") // Use special style for selected item
 		}
 
 		str := fmt.Sprintf(" %s ", item.Name)
@@ -187,32 +183,8 @@ func (b *MenuBar) SetFocused(v bool) {
 	}
 }
 
-func (b *MenuBar) SetTheme(theme *Theme) {
-	b.Theme = theme
-}
-
-// GetPos returns the position of the MenuBar.
-func (b *MenuBar) GetPos() (int, int) {
-	return b.x, b.y
-}
-
-// SetPos sets the position of the MenuBar.
-func (b *MenuBar) SetPos(x, y int) {
-	b.x, b.y = x, y
-}
-
 func (b *MenuBar) GetMinSize() (int, int) {
 	return 0, 1
-}
-
-// GetSize returns the size of the MenuBar.
-func (b *MenuBar) GetSize() (int, int) {
-	return b.width, b.height
-}
-
-// SetSize sets the size of the MenuBar.
-func (b *MenuBar) SetSize(width, height int) {
-	b.width, b.height = width, height
 }
 
 // HandleEvent will propogate events to sub-menus and returns true if
@@ -288,12 +260,10 @@ type Menu struct {
 	QuickChar int // Character/rune index of Name
 	Items     []Item
 
-	x, y                 int
-	width, height        int    // Size may not be settable
 	selected             int    // Index of selected Item
 	itemSelectedCallback func() // Used internally to hide menus on selection
 
-	Theme *Theme
+	baseComponent
 }
 
 // New creates a new Menu. `items` can be `nil`.
@@ -302,7 +272,8 @@ func NewMenu(name string, quickChar int, theme *Theme) *Menu {
 		Name:      name,
 		QuickChar: quickChar,
 		Items:     make([]Item, 0, 6),
-		Theme:     theme,
+
+		baseComponent: baseComponent{theme: theme},
 	}
 }
 
@@ -360,7 +331,7 @@ func (m *Menu) CursorDown() {
 
 // Draw renders the Menu at its position.
 func (m *Menu) Draw(s tcell.Screen) {
-	defaultStyle := m.Theme.GetOrDefault("Menu")
+	defaultStyle := m.theme.GetOrDefault("Menu")
 
 	m.GetSize()                                                          // Call this to update internal width and height
 	DrawRect(s, m.x, m.y, m.width, m.height, ' ', defaultStyle)          // Fill background
@@ -375,7 +346,7 @@ func (m *Menu) Draw(s tcell.Screen) {
 		default: // Handle sub-menus and item entries the same
 			var sty tcell.Style
 			if m.selected == i {
-				sty = m.Theme.GetOrDefault("MenuSelected")
+				sty = m.theme.GetOrDefault("MenuSelected")
 			} else {
 				sty = defaultStyle
 			}
@@ -401,23 +372,7 @@ func (m *Menu) SetFocused(v bool) {
 	}
 }
 
-// GetPos returns the position of the Menu.
-func (m *Menu) GetPos() (int, int) {
-	return m.x, m.y
-}
-
-// SetPos sets the position of the Menu.
-func (m *Menu) SetPos(x, y int) {
-	m.x, m.y = x, y
-}
-
 func (m *Menu) GetMinSize() (int, int) {
-	return m.GetSize()
-}
-
-// GetSize returns the size of the Menu.
-func (m *Menu) GetSize() (int, int) {
-	// TODO: no, pls don't do this
 	maxNameLen := 0
 	var widestShortcut int = 0 // Will contribute to the width
 	for i := range m.Items {
@@ -439,6 +394,11 @@ func (m *Menu) GetSize() (int, int) {
 	m.width = 1 + maxNameLen + shortcutsWidth + 1 // Add two for padding
 	m.height = 1 + len(m.Items) + 1               // And another two for the same reason ...
 	return m.width, m.height
+}
+
+// GetSize returns the size of the Menu.
+func (m *Menu) GetSize() (int, int) {
+	return m.GetMinSize()
 }
 
 // SetSize sets the size of the Menu.

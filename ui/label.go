@@ -19,7 +19,7 @@ const (
 // bounding box and allows for left-align, right-align, and justify.
 type Label struct {
 	Text          string
-	x, y          int
-	width, height int
 	Alignment     Align
+
+	baseComponent
 }

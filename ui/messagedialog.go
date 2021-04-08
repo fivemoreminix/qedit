@@ -30,13 +30,10 @@ type MessageDialog struct {
 	message        string
 	messageWrapped string
 
-	x, y          int
-	width, height int
-	focused       bool
-	theme         *Theme
-
 	buttons     []*Button
 	selectedIdx int
+
+	baseComponent
 }
 
 func NewMessageDialog(title string, message string, kind MessageDialogKind, options []string, theme *Theme, callback func(string)) *MessageDialog {
@@ -53,7 +50,7 @@ func NewMessageDialog(title string, message string, kind MessageDialogKind, opti
 		Kind:     kind,
 		Callback: callback,
 
-		theme: theme,
+		baseComponent: baseComponent{theme: theme},
 	}
 
 	dialog.buttons = make([]*Button, len(options))
@@ -107,22 +104,10 @@ func (d *MessageDialog) SetTheme(theme *Theme) {
 	}
 }
 
-func (d *MessageDialog) GetPos() (int, int) {
-	return d.x, d.y
-}
-
-func (d *MessageDialog) SetPos(x, y int) {
-	d.x, d.y = x, y
-}
-
 func (d *MessageDialog) GetMinSize() (int, int) {
 	lines := strings.Count(d.messageWrapped, "\n") + 1
 
 	return Max(len(d.Title)+2, 30), 2 + lines + 2
-}
-
-func (d *MessageDialog) GetSize() (int, int) {
-	return d.width, d.height
 }
 
 func (d *MessageDialog) SetSize(width, height int) {

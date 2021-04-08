@@ -15,18 +15,15 @@ type Tab struct {
 // A TabContainer organizes children by showing only one of them at a time.
 type TabContainer struct {
 	children      []Tab
-	x, y          int
-	width, height int
-	focused       bool
 	selected      int
 
-	Theme *Theme
+	baseComponent
 }
 
 func NewTabContainer(theme *Theme) *TabContainer {
 	return &TabContainer{
 		children: make([]Tab, 0, 4),
-		Theme:    theme,
+		baseComponent: baseComponent{theme: theme},
 	}
 }
 
@@ -90,7 +87,7 @@ func (c *TabContainer) GetTab(idx int) *Tab {
 // Draw will draws the border of the BoxContainer, then it draws its child component.
 func (c *TabContainer) Draw(s tcell.Screen) {
 	// Draw outline
-	DrawRectOutlineDefault(s, c.x, c.y, c.width, c.height, c.Theme.GetOrDefault("TabContainer"))
+	DrawRectOutlineDefault(s, c.x, c.y, c.width, c.height, c.theme.GetOrDefault("TabContainer"))
 
 	combinedTabLength := 0
 	for _, tab := range c.children {
@@ -103,9 +100,9 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 	for i, tab := range c.children {
 		var sty tcell.Style
 		if c.selected == i {
-			sty = c.Theme.GetOrDefault("TabSelected")
+			sty = c.theme.GetOrDefault("TabSelected")
 		} else {
-			sty = c.Theme.GetOrDefault("Tab")
+			sty = c.theme.GetOrDefault("Tab")
 		}
 
 		var dirty bool
@@ -141,19 +138,10 @@ func (c *TabContainer) SetFocused(v bool) {
 
 // SetTheme sets the theme.
 func (c *TabContainer) SetTheme(theme *Theme) {
-	c.Theme = theme
+	c.theme = theme
 	for _, tab := range c.children {
 		tab.Child.SetTheme(theme) // Update the theme for all children
 	}
-}
-
-func (c *TabContainer) GetMinSize() (int, int) {
-	return 0, 0
-}
-
-// GetPos returns the position of the container.
-func (c *TabContainer) GetPos() (int, int) {
-	return c.x, c.y
 }
 
 // SetPos sets the position of the container and updates the child Component.
@@ -162,11 +150,6 @@ func (c *TabContainer) SetPos(x, y int) {
 	if c.selected < len(c.children) {
 		c.children[c.selected].Child.SetPos(x+1, y+1)
 	}
-}
-
-// GetSize gets the size of the container.
-func (c *TabContainer) GetSize() (int, int) {
-	return c.width, c.height
 }
 
 // SetSize sets the size of the container and updates the size of the child Component.

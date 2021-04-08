@@ -23,17 +23,60 @@ type Component interface {
 	SetTheme(*Theme)
 
 	// Get position of the Component.
-	GetPos() (int, int)
+	GetPos() (x, y int)
 	// Set position of the Component.
-	SetPos(int, int)
+	SetPos(x, y int)
 
 	// Returns the smallest size the Component can be.
-	GetMinSize() (int, int)
+	GetMinSize() (w, h int)
 	// Get size of the Component.
-	GetSize() (int, int)
+	GetSize() (w, h int)
 	// Set size of the component. If size is smaller than minimum, minimum is
 	// used, instead.
-	SetSize(int, int)
+	SetSize(w, h int)
 
-	tcell.EventHandler // A Component can handle events
+	// HandleEvent tells the Component to handle the provided event. The Component
+	// should only handle events if it is focused. An event can optionally be
+	// handled. If an event is handled, the function should return true. If the
+	// event went unhandled, the function should return false.
+	HandleEvent(tcell.Event) bool
+}
+
+// baseComponent can be embedded in a Component's struct to hide a few of the
+// boilerplate fields and functions. The baseComponent defines defaults for
+// ...Pos(), ...Size(), SetFocused(), and SetTheme() functions that can be
+// overriden.
+type baseComponent struct {
+	focused       bool
+	x, y          int
+	width, height int
+	theme         *Theme
+}
+
+func (c *baseComponent) SetFocused(v bool) {
+	c.focused = v
+}
+
+func (c *baseComponent) SetTheme(theme *Theme) {
+	c.theme = theme
+}
+
+func (c *baseComponent) GetPos() (int, int) {
+	return c.x, c.y
+}
+
+func (c *baseComponent) SetPos(x, y int) {
+	c.x, c.y = x, y
+}
+
+func (c *baseComponent) GetMinSize() (int, int) {
+	return 0, 0
+}
+
+func (c *baseComponent) GetSize() (int, int) {
+	return c.width, c.height
+}
+
+func (c *baseComponent) SetSize(width, height int) {
+	c.width, c.height = width, height
 }

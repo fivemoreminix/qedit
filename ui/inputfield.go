@@ -12,11 +12,10 @@ type InputField struct {
 
 	cursorPos     int
 	scrollPos     int
-	x, y          int
-	width, height int
-	focused       bool
 	screen        *tcell.Screen
 	style         tcell.Style
+
+	baseComponent
 }
 
 func NewInputField(screen *tcell.Screen, placeholder []byte, style tcell.Style) *InputField {
@@ -155,28 +154,6 @@ func (f *InputField) SetFocused(v bool) {
 
 func (f *InputField) SetStyle(style tcell.Style) {
 	f.style = style
-}
-
-func (f *InputField) SetTheme(theme *Theme) {}
-
-func (f *InputField) GetPos() (int, int) {
-	return f.x, f.y
-}
-
-func (f *InputField) SetPos(x, y int) {
-	f.x, f.y = x, y
-}
-
-func (f *InputField) GetMinSize() (int, int) {
-	return 0, 0
-}
-
-func (f *InputField) GetSize() (int, int) {
-	return f.width, f.height
-}
-
-func (f *InputField) SetSize(width, height int) {
-	f.width, f.height = width, height
 }
 
 func (f *InputField) HandleEvent(event tcell.Event) bool {

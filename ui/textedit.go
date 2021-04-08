@@ -39,9 +39,6 @@ type TextEdit struct {
 	FilePath    string // Will be empty if the file has not been saved yet
 
 	screen           *tcell.Screen // We keep our own reference to the screen for cursor purposes.
-	x, y             int
-	width, height    int
-	focused          bool
 	curx, cury       int // Zero-based: cursor points before the character at that position.
 	prevCurCol       int // Previous maximum column the cursor was at, when the user pressed left or right
 	scrollx, scrolly int // X and Y offset of view, known as scroll
@@ -49,7 +46,7 @@ type TextEdit struct {
 	selection  Region // Selection: selectMode determines if it should be used
 	selectMode bool   // Whether the user is actively selecting text
 
-	Theme *Theme
+	baseComponent
 }
 
 // New will initialize the buffer using the given 'contents'. If the 'filePath' or 'FilePath' is empty,
@@ -62,8 +59,9 @@ func NewTextEdit(screen *tcell.Screen, filePath string, contents []byte, theme *
 		UseHardTabs: true,
 		TabSize:     4,
 		FilePath:    filePath,
-		screen:      screen,
-		Theme:       theme,
+
+		screen:        screen,
+		baseComponent: baseComponent{theme: theme},
 	}
 	te.SetContents(contents)
 	return te
@@ -383,8 +381,8 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 	columnWidth := t.getColumnWidth()
 	bufferLines := t.Buffer.Lines()
 
-	selectedStyle := t.Theme.GetOrDefault("TextEditSelected")
-	columnStyle := t.Theme.GetOrDefault("TextEditColumn")
+	selectedStyle := t.theme.GetOrDefault("TextEditSelected")
+	columnStyle := t.theme.GetOrDefault("TextEditColumn")
 
 	t.Highlighter.UpdateInvalidatedLines(t.scrolly, t.scrolly+(t.height-1))
 
@@ -563,34 +561,6 @@ func (t *TextEdit) SetFocused(v bool) {
 	} else {
 		(*t.screen).HideCursor()
 	}
-}
-
-func (t *TextEdit) SetTheme(theme *Theme) {
-	t.Theme = theme
-}
-
-// GetPos gets the position of the TextEdit.
-func (t *TextEdit) GetPos() (int, int) {
-	return t.x, t.y
-}
-
-// SetPos sets the position of the TextEdit.
-func (t *TextEdit) SetPos(x, y int) {
-	t.x, t.y = x, y
-}
-
-func (t *TextEdit) GetMinSize() (int, int) {
-	return 0, 0
-}
-
-// GetSize gets the size of the TextEdit.
-func (t *TextEdit) GetSize() (int, int) {
-	return t.width, t.height
-}
-
-// SetSize sets the size of the TextEdit.
-func (t *TextEdit) SetSize(width, height int) {
-	t.width, t.height = width, height
 }
 
 // HandleEvent allows the TextEdit to handle `event` if it chooses, returns
