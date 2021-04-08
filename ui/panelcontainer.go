@@ -76,15 +76,24 @@ func (c *PanelContainer) DeleteSelected() Component {
 			}
 
 			if (*p).Left != nil {
+				// Parent becomes the Left panel
 				panel := (*p).Left.(*Panel)
 				(*p).Left = (*panel).Left
 				(*p).Right = (*panel).Right
 				(*p).Kind = (*panel).Kind
+				(*p).SplitAt = (*panel).SplitAt
 			} else {
 				(*p).Kind = PanelKindEmpty
 			}
 
-			c.changeSelected(&p)
+			// Decide what Panel to select next
+			if !(*p).IsLeaf() { // If the new panel was a split panel...
+				// Select the leftmost child of it
+				(*p).EachLeaf(false, func(l *Panel) bool { c.changeSelected(&l); return true })
+			} else {
+				c.changeSelected(&p)
+			}
+
 			(*p).UpdateSplits()
 		} else if c.floatingMode { // Deleting a floating Panel without a parent
 			c.floating[0] = nil
