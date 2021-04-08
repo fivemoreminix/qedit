@@ -15,8 +15,8 @@ type Component interface {
 	// A component knows its position and size, which is used to draw itself in
 	// its bounding rectangle.
 	Draw(tcell.Screen)
-	// Components can be focused, which may affect how it handles events. For
-	// example, when a button is focused, the Return key may be pressed to
+	// Components can be focused, which may affect how it handles events or draws.
+	// For example, when a button is focused, the Return key may be pressed to
 	// activate the button.
 	SetFocused(bool)
 	// Applies the theme to the component and all of its children.

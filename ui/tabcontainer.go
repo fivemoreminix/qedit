@@ -86,23 +86,29 @@ func (c *TabContainer) GetTab(idx int) *Tab {
 
 // Draw will draws the border of the BoxContainer, then it draws its child component.
 func (c *TabContainer) Draw(s tcell.Screen) {
+	var styFocused tcell.Style
+	if c.focused {
+		styFocused = c.theme.GetOrDefault("TabContainerFocused")
+	} else {
+		styFocused = c.theme.GetOrDefault("TabContainer")
+	}
+
 	// Draw outline
-	DrawRectOutlineDefault(s, c.x, c.y, c.width, c.height, c.theme.GetOrDefault("TabContainer"))
+	DrawRectOutlineDefault(s, c.x, c.y, c.width, c.height, styFocused)
 
 	combinedTabLength := 0
-	for _, tab := range c.children {
-		combinedTabLength += len(tab.Name) + 2 // 2 for padding
+	for i := range c.children {
+		combinedTabLength += len(c.children[i].Name) + 2 // 2 for padding
 	}
 	combinedTabLength += len(c.children) - 1 // add for spacing between tabs
 
 	// Draw tabs
-	col := c.x + c.width/2 - combinedTabLength/2 - 1 // Starting column
+	col := c.x + c.width/2 - combinedTabLength/2 // Starting column
 	for i, tab := range c.children {
-		var sty tcell.Style
+		sty := styFocused
 		if c.selected == i {
-			sty = c.theme.GetOrDefault("TabSelected")
-		} else {
-			sty = c.theme.GetOrDefault("Tab")
+			fg, bg, attr := styFocused.Decompose()
+			sty = tcell.Style{}.Foreground(bg).Background(fg).Attributes(attr)
 		}
 
 		var dirty bool
@@ -118,7 +124,7 @@ func (c *TabContainer) Draw(s tcell.Screen) {
 
 		str := fmt.Sprintf(" %s ", name)
 
-		DrawStr(s, c.x+col, c.y, str, sty)
+		DrawStr(s, col, c.y, str, sty)
 		col += len(str) + 1 // Add one for spacing between tabs
 	}
 

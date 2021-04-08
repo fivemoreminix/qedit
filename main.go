@@ -21,15 +21,15 @@ var (
 )
 
 var theme = ui.Theme{
-	"StatusBar": tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
+	"StatusBar": tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorLightGray),
 }
 
 var (
 	screen *tcell.Screen
 
-	menuBar      *ui.MenuBar
-	tabContainer *ui.TabContainer
-	dialog       ui.Component // nil if not present (has exclusive focus)
+	menuBar        *ui.MenuBar
+	panelContainer *ui.PanelContainer
+	dialog         ui.Component // nil if not present (has exclusive focus)
 
 	focusedComponent ui.Component = nil
 )
@@ -48,15 +48,23 @@ func showErrorDialog(title string, message string, callback func()) {
 			callback()
 		} else {
 			dialog = nil
-			changeFocus(tabContainer) // Default behavior: focus tabContainer
+			changeFocus(panelContainer) // Default behavior: focus panelContainer
 		}
 	})
 	changeFocus(dialog)
 }
 
+func getActiveTabContainer() *ui.TabContainer {
+	if panelContainer.GetSelected() != nil {
+		return panelContainer.GetSelected().(*ui.TabContainer)
+	}
+	return nil
+}
+
 // returns nil if no TextEdit is visible
 func getActiveTextEdit() *ui.TextEdit {
-	if tabContainer.GetTabCount() > 0 {
+	tabContainer := getActiveTabContainer()
+	if tabContainer != nil && tabContainer.GetTabCount() > 0 {
 		tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 		te := tab.Child.(*ui.TextEdit)
 		return te
@@ -68,6 +76,7 @@ func getActiveTextEdit() *ui.TextEdit {
 func saveAs() {
 	callback := func(filePaths []string) {
 		te := getActiveTextEdit() // te should have value if we are here
+		tabContainer := getActiveTabContainer()
 		tab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
 
 		// If we got the callback, it is safe to assume there are one or more files
@@ -89,7 +98,8 @@ func saveAs() {
 		tab.Name = filePaths[0]
 
 		dialog = nil // Hide the file selector
-		changeFocus(tabContainer)
+		changeFocus(panelContainer)
+		tab.Name = filePaths[0]
 	}
 
 	dialog = ui.NewFileSelectorDialog(
@@ -100,7 +110,7 @@ func saveAs() {
 		callback,
 		func() { // Dialog canceled
 			dialog = nil
-			changeFocus(tabContainer)
+			changeFocus(panelContainer)
 		},
 	)
 	changeFocus(dialog)
@@ -135,11 +145,13 @@ func main() {
 	var closing bool
 	sizex, sizey := s.Size()
 
-	tabContainer = ui.NewTabContainer(&theme)
-	tabContainer.SetPos(0, 1)
-	tabContainer.SetSize(sizex, sizey-2)
+	panelContainer = ui.NewPanelContainer(&theme)
+	panelContainer.SetPos(0, 1)
+	panelContainer.SetSize(sizex, sizey-2)
 
-	changeFocus(tabContainer) // tabContainer focused by default
+	panelContainer.SetSelected(ui.NewTabContainer(&theme))
+
+	changeFocus(panelContainer) // panelContainer focused by default
 
 	// Open files from command-line arguments
 	if flag.NArg() > 0 {
@@ -169,9 +181,9 @@ func main() {
 
 			textEdit := ui.NewTextEdit(screen, arg, bytes, &theme)
 			textEdit.Dirty = dirty
-			tabContainer.AddTab(arg, textEdit)
+			getActiveTabContainer().AddTab(arg, textEdit)
 		}
-		tabContainer.SetFocused(true) // Lets any opened TextEdit component know to be focused
+		panelContainer.SetFocused(true) // Lets any opened TextEdit component know to be focused
 	}
 
 	_, err = ClipInitialize(ClipExternal)
@@ -185,12 +197,18 @@ func main() {
 
 	fileMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "New File", Shortcut: "Ctrl+N", Callback: func() {
 		textEdit := ui.NewTextEdit(screen, "", []byte{}, &theme) // No file path, no contents
+		tabContainer := getActiveTabContainer()
+		if tabContainer == nil {
+			tabContainer = ui.NewTabContainer(&theme)
+			panelContainer.SetSelected(tabContainer)
+		}
 		tabContainer.AddTab("noname", textEdit)
-
-		changeFocus(tabContainer)
 		tabContainer.FocusTab(tabContainer.GetTabCount() - 1)
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Open...", Shortcut: "Ctrl+O", Callback: func() {
 		callback := func(filePaths []string) {
+			tabContainer := getActiveTabContainer()
+
 			var errOccurred bool
 			for _, path := range filePaths {
 				file, err := os.Open(path)
@@ -209,12 +227,16 @@ func main() {
 				}
 
 				textEdit := ui.NewTextEdit(screen, path, bytes, &theme)
+				if tabContainer == nil {
+					tabContainer = ui.NewTabContainer(&theme)
+					panelContainer.SetSelected(tabContainer)
+				}
 				tabContainer.AddTab(path, textEdit)
 			}
 
 			if !errOccurred { // Prevent hiding the error dialog
 				dialog = nil // Hide the file selector
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 				if tabContainer.GetTabCount() > 0 {
 					tabContainer.FocusTab(tabContainer.GetTabCount() - 1)
 				}
@@ -228,7 +250,7 @@ func main() {
 			callback,
 			func() { // Dialog is canceled
 				dialog = nil
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 			},
 		)
 		changeFocus(dialog)
@@ -250,24 +272,36 @@ func main() {
 				}
 				te.Dirty = false
 
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 			} else {
 				saveAs()
 			}
 		}
 	}}, &ui.ItemEntry{Name: "Save As...", QuickChar: 5, Callback: saveAs}, &ui.ItemSeparator{},
 		&ui.ItemEntry{Name: "Close", Shortcut: "Ctrl+Q", Callback: func() {
-			if tabContainer.GetTabCount() > 0 {
+			tabContainer := getActiveTabContainer()
+			if tabContainer != nil && tabContainer.GetTabCount() > 0 {
 				tabContainer.RemoveTab(tabContainer.GetSelectedTabIdx())
-			} else { // No tabs open; close the editor
-				closing = true
+			} else {
+				// if the selected is root: close editor. otherwise close panel
+				if panelContainer.IsRootSelected() {
+					closing = true
+				} else {
+					panelContainer.DeleteSelected()
+				}
 			}
 		}}})
 
 	panelMenu := ui.NewMenu("Panel", 0, &theme)
 
-	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Up", QuickChar: -1, Shortcut: "Alt+Up", Callback: func() {
-
+	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Next", Shortcut: "Alt+.", Callback: func() {
+		panelContainer.SelectNext()
+		changeFocus(panelContainer)
+	}}, &ui.ItemEntry{Name: "Focus Prev", Shortcut: "Alt+,", Callback: func() {
+		panelContainer.SelectPrev()
+		changeFocus(panelContainer)
+	}}, &ui.ItemEntry{Name: "Focus Up", QuickChar: -1, Shortcut: "Alt+Up", Callback: func() {
+		
 	}}, &ui.ItemEntry{Name: "Focus Down", QuickChar: -1, Shortcut: "Alt+Down", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Focus Left", QuickChar: -1, Shortcut: "Alt+Left", Callback: func() {
@@ -275,19 +309,33 @@ func main() {
 	}}, &ui.ItemEntry{Name: "Focus Right", QuickChar: -1, Shortcut: "Alt+Right", Callback: func() {
 
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split Top", QuickChar: 6, Callback: func() {
-
+		panelContainer.SplitSelected(ui.SplitVertical, ui.NewTabContainer(&theme))
+		panelContainer.SwapNeighborsSelected()
+		panelContainer.SelectPrev()
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Bottom", QuickChar: 6, Callback: func() {
-
+		panelContainer.SplitSelected(ui.SplitVertical, ui.NewTabContainer(&theme))
+		panelContainer.SelectNext()
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Left", QuickChar: 6, Callback: func() {
-
+		panelContainer.SplitSelected(ui.SplitHorizontal, ui.NewTabContainer(&theme))
+		panelContainer.SwapNeighborsSelected()
+		panelContainer.SelectPrev()
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Right", QuickChar: 6, Callback: func() {
-
+		panelContainer.SplitSelected(ui.SplitHorizontal, ui.NewTabContainer(&theme))
+		panelContainer.SelectNext()
+		changeFocus(panelContainer)
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Move", Shortcut: "Ctrl+M", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Resize", Shortcut: "Ctrl+R", Callback: func() {
 
-	}}, &ui.ItemEntry{Name: "Float", Callback: func() {
-
+	}}, &ui.ItemEntry{Name: "Toggle Floating", Callback: func() {
+		panelContainer.FloatSelected()
+		if !panelContainer.GetFloatingFocused() {
+			panelContainer.SetFloatingFocused(true)
+		}
+		changeFocus(panelContainer)
 	}}})
 
 	editMenu := ui.NewMenu("Edit", 0, &theme)
@@ -305,7 +353,7 @@ func main() {
 				te.Delete(false) // Delete selection
 			}
 			if err == nil { // Prevent hiding error dialog
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 			}
 		}
 	}}, &ui.ItemEntry{Name: "Copy", Shortcut: "Ctrl+C", Callback: func() {
@@ -320,7 +368,7 @@ func main() {
 				}
 			}
 			if err == nil {
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 			}
 		}
 	}}, &ui.ItemEntry{Name: "Paste", Shortcut: "Ctrl+V", Callback: func() {
@@ -331,7 +379,7 @@ func main() {
 				showErrorDialog("Clipboard Failure", fmt.Sprintf("%v", err), nil)
 			} else {
 				te.Insert(contents)
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 			}
 		}
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Select All", QuickChar: 7, Shortcut: "Ctrl+A", Callback: func() {
@@ -354,12 +402,12 @@ func main() {
 				te.SetLineCol(line-1, 0)
 				// Hide dialog
 				dialog = nil
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 			}
 			dialog = NewGotoLineDialog(screen, &theme, callback, func() {
 				// Dialog canceled
 				dialog = nil
-				changeFocus(tabContainer)
+				changeFocus(panelContainer)
 			})
 			changeFocus(dialog)
 		}
@@ -378,10 +426,8 @@ func main() {
 		//ui.DrawRect(screen, 0, 0, sizex, sizey, '▚', tcell.Style{}.Foreground(tcell.ColorGrey).Background(tcell.ColorBlack))
 		ui.DrawRect(s, 0, 1, sizex, sizey-1, ' ', tcell.Style{}.Background(tcell.ColorBlack))
 
-		if tabContainer.GetTabCount() > 0 { // Draw the tab container only if a tab is open
-			tabContainer.Draw(s)
-		}
-		menuBar.Draw(s) // Always draw the menu bar
+		panelContainer.Draw(s)
+		menuBar.Draw(s)
 
 		if dialog != nil {
 			// Update fileSelector dialog pos and size
@@ -394,10 +440,7 @@ func main() {
 
 		// Draw statusbar
 		ui.DrawRect(s, 0, sizey-1, sizex, 1, ' ', theme["StatusBar"])
-		if tabContainer.GetTabCount() > 0 {
-			focusedTab := tabContainer.GetTab(tabContainer.GetSelectedTabIdx())
-			te := focusedTab.Child.(*ui.TextEdit)
-
+		if te := getActiveTextEdit(); te != nil {
 			var delim string
 			if te.IsCRLF {
 				delim = "CRLF"
@@ -425,17 +468,17 @@ func main() {
 			sizex, sizey = s.Size()
 
 			menuBar.SetSize(sizex, 1)
-			tabContainer.SetSize(sizex, sizey-2)
+			panelContainer.SetSize(sizex, sizey-2)
 
 			s.Sync() // Redraw everything
 		case *tcell.EventKey:
 			// On Escape, we change focus between editor and the MenuBar.
 			if dialog == nil {
 				if ev.Key() == tcell.KeyEscape {
-					if focusedComponent == tabContainer {
+					if focusedComponent == panelContainer {
 						changeFocus(menuBar)
 					} else {
-						changeFocus(tabContainer)
+						changeFocus(panelContainer)
 					}
 				}
 
