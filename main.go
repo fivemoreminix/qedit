@@ -297,8 +297,10 @@ func main() {
 
 	panelMenu.AddItems([]ui.Item{&ui.ItemEntry{Name: "Focus Next", Shortcut: "Alt+.", Callback: func() {
 		panelContainer.SelectNext()
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Focus Prev", Shortcut: "Alt+,", Callback: func() {
 		panelContainer.SelectPrev()
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Focus Up", QuickChar: -1, Shortcut: "Alt+Up", Callback: func() {
 		
 	}}, &ui.ItemEntry{Name: "Focus Down", QuickChar: -1, Shortcut: "Alt+Down", Callback: func() {
@@ -310,13 +312,17 @@ func main() {
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Split Top", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitVertical, ui.NewTabContainer(&theme))
 		panelContainer.SwapNeighborsSelected()
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Bottom", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitVertical, ui.NewTabContainer(&theme))
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Left", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitHorizontal, ui.NewTabContainer(&theme))
 		panelContainer.SwapNeighborsSelected()
+		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Split Right", QuickChar: 6, Callback: func() {
 		panelContainer.SplitSelected(ui.SplitHorizontal, ui.NewTabContainer(&theme))
+		changeFocus(panelContainer)
 	}}, &ui.ItemSeparator{}, &ui.ItemEntry{Name: "Move", Shortcut: "Ctrl+M", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Resize", Shortcut: "Ctrl+R", Callback: func() {
@@ -326,6 +332,7 @@ func main() {
 		if !panelContainer.GetFloatingFocused() {
 			panelContainer.SetFloatingFocused(true)
 		}
+		changeFocus(panelContainer)
 	}}})
 
 	editMenu := ui.NewMenu("Edit", 0, &theme)
