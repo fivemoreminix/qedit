@@ -21,7 +21,7 @@ var (
 )
 
 var theme = ui.Theme{
-	"StatusBar": tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorSilver),
+	"StatusBar": tcell.Style{}.Foreground(tcell.ColorBlack).Background(tcell.ColorLightGray),
 }
 
 var (

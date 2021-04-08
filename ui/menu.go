@@ -152,7 +152,12 @@ func (b *MenuBar) CursorRight() {
 
 // Draw renders the MenuBar and its sub-menus.
 func (b *MenuBar) Draw(s tcell.Screen) {
-	normalStyle := b.Theme.GetOrDefault("MenuBar")
+	var normalStyle tcell.Style
+	if b.focused {
+		normalStyle = b.Theme.GetOrDefault("MenuBarFocused")
+	} else {
+		normalStyle = b.Theme.GetOrDefault("MenuBar")
+	}
 
 	// Draw menus based on whether b.focused and which is selected
 	DrawRect(s, b.x, b.y, b.width, 1, ' ', normalStyle)
@@ -160,7 +165,8 @@ func (b *MenuBar) Draw(s tcell.Screen) {
 	for i, item := range b.menus {
 		sty := normalStyle
 		if b.focused && b.selected == i {
-			sty = b.Theme.GetOrDefault("MenuBarSelected") // Use special style for selected item
+			fg, bg, attr := normalStyle.Decompose()
+			sty = tcell.Style{}.Foreground(bg).Background(fg).Attributes(attr)
 		}
 
 		str := fmt.Sprintf(" %s ", item.Name)
