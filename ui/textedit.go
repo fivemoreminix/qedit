@@ -268,6 +268,20 @@ func (t *TextEdit) GetLineCol() (int, int) {
 	return t.cury, t.curx
 }
 
+// The same as updateTerminalCursor but the caller can provide the tabOffset to
+// save the original function a calculation.
+func (t *TextEdit) updateTerminalCursorNoHelper(columnWidth, tabOffset int) {
+	(*t.screen).ShowCursor(t.x+columnWidth+t.curx+tabOffset-t.scrollx, t.y+t.cury-t.scrolly)
+}
+
+// updateTerminalCursor sets the position of the cursor with the cursor position
+// properties of the TextEdit. Always sends a signal to *show* the cursor.
+func (t *TextEdit) updateTerminalCursor() {
+	columnWidth := t.getColumnWidth()
+	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize - 1)
+	t.updateTerminalCursorNoHelper(columnWidth, tabOffset)
+}
+
 // SetLineCol sets the cursor line and column position. Zero is origin for both.
 // If `line` is out of bounds, `line` will be clamped to the closest available line.
 // If `col` is out of bounds, `col` will be clamped to the closest column available for the line.
@@ -300,9 +314,8 @@ func (t *TextEdit) SetLineCol(line, col int) {
 
 	t.cury, t.curx = line, col
 	if t.focused && !t.selectMode {
-		(*t.screen).ShowCursor(t.x+columnWidth+col+tabOffset-t.scrollx, t.y+line-t.scrolly)
-	} else {
-		(*t.screen).HideCursor()
+		// Update terminal cursor position
+		t.updateTerminalCursorNoHelper(columnWidth, tabOffset)
 	}
 }
 
@@ -544,7 +557,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 func (t *TextEdit) SetFocused(v bool) {
 	t.focused = v
 	if v {
-		t.SetLineCol(t.cury, t.curx)
+		t.updateTerminalCursor()
 	} else {
 		(*t.screen).HideCursor()
 	}
