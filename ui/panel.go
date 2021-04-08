@@ -34,11 +34,8 @@ type Panel struct {
 	Right   Component
 	SplitAt int
 	Kind    PanelKind
-	Focused bool
 
-	x, y   int
-	width  int
-	height int
+	baseComponent
 }
 
 // UpdateSplits uses the position and size of the Panel, along with its Weight
@@ -159,16 +156,6 @@ func (p *Panel) SetTheme(theme *Theme) {
 	}
 }
 
-// GetPos returns the position of the panel.
-func (p *Panel) GetPos() (int, int) {
-	return p.width, p.height
-}
-
-// SetPos sets the position of the panel.
-func (p *Panel) SetPos(x, y int) {
-	p.x, p.y = x, y
-}
-
 // GetMinSize returns the combined minimum sizes of the Panel's children.
 func (p *Panel) GetMinSize() (int, int) {
 	switch p.Kind {
@@ -187,10 +174,6 @@ func (p *Panel) GetMinSize() (int, int) {
 	default:
 		return 0, 0
 	}
-}
-
-func (p *Panel) GetSize() (int, int) {
-	return p.width, p.height
 }
 
 // SetSize sets the Panel size to the given width, and height. It will not check
