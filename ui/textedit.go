@@ -171,7 +171,7 @@ func (t *TextEdit) Delete(forwards bool) {
 		} else { // Delete the character before the cursor
 			// If the cursor is not at the first column of the first line...
 			if cursLine > 0 || cursCol > 0 {
-				t.cursor.Left() // Back up to that character
+				t.cursor = t.cursor.Left() // Back up to that character
 
 				bytes := t.Buffer.Slice(cursLine, cursCol, cursLine, cursCol) // Get the char at cursor
 				deletedLine = bytes[0] == '\n'
