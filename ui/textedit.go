@@ -77,6 +77,7 @@ loop:
 
 	t.Buffer = buffer.NewRopeBuffer(contents)
 	t.cursor = buffer.NewCursor(&t.Buffer)
+	t.selection = buffer.NewRegion(&t.Buffer)
 
 	// TODO: replace with automatic determination of language via filetype
 	lang := &buffer.Language{
@@ -151,8 +152,8 @@ func (t *TextEdit) Delete(forwards bool) {
 	if t.selectMode { // If text is selected, delete the whole selection
 		t.selectMode = false // Disable selection and prevent infinite loop
 
-		startLine, startCol := t.selection.Start()
-		endLine, endCol := t.selection.End()
+		startLine, startCol := t.selection.Start.GetLineCol()
+		endLine, endCol := t.selection.End.GetLineCol()
 
 		// Delete the region
 		t.Buffer.Remove(startLine, startCol, endLine, endCol)
@@ -319,8 +320,8 @@ func (t *TextEdit) getColumnWidth() int {
 func (t *TextEdit) GetSelectedBytes() []byte {
 	// TODO: there's a bug with copying text
 	if t.selectMode {
-		startLine, startCol := t.selection.Start()
-		endLine, endCol := t.selection.End()
+		startLine, startCol := t.selection.Start.GetLineCol()
+		endLine, endCol := t.selection.End.GetLineCol()
 		return t.Buffer.Slice(startLine, startCol, endLine, endCol)
 	}
 	return []byte{}
@@ -421,8 +422,8 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 						r = ' '
 					}
 
-					startLine, startCol := t.selection.Start()
-					endLine, endCol := t.selection.End()
+					startLine, startCol := t.selection.Start.GetLineCol()
+					endLine, endCol := t.selection.End.GetLineCol()
 
 					// Determine whether we select the current rune. Also only select runes within
 					// the line bytes range.
@@ -508,87 +509,98 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		// Cursor movement
 		case tcell.KeyUp:
 			if ev.Modifiers() == tcell.ModShift {
-				// if !t.selectMode {
-				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	t.selectMode = true
-				// } else {
-				// 	prevCurX, prevCurY := t.curx, t.cury
-				// 	t.CursorUp()
-				// 	// Grow the selection in the correct direction
-				// 	if prevCurY <= t.selection.StartLine && prevCurX <= t.selection.StartCol {
-				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	} else {
-				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	}
-				// }
+				if !t.selectMode {
+					var endCursor buffer.Cursor
+					if cursLine, _ := t.cursor.GetLineCol(); cursLine != 0 {
+						endCursor = t.cursor.Left()
+					} else {
+						endCursor = t.cursor
+					}
+					t.selection.End = endCursor
+					t.SetCursor(t.cursor.Up())
+					t.selection.Start = t.cursor
+					t.selectMode = true
+					t.ScrollToCursor()
+					break // Select only a single character at start
+				}
+
+				if t.selection.Start.Eq(t.cursor) {
+					t.SetCursor(t.cursor.Up())
+					t.selection.Start = t.cursor
+				} else {
+					t.SetCursor(t.cursor.Up())
+					t.selection.End = t.cursor
+				}
 			} else {
 				t.selectMode = false
 				t.SetCursor(t.cursor.Up())
-				t.ScrollToCursor()
 			}
+			t.ScrollToCursor()
 		case tcell.KeyDown:
 			if ev.Modifiers() == tcell.ModShift {
-				// if !t.selectMode {
-				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	t.selectMode = true
-				// } else {
-				// 	prevCurX, prevCurY := t.curx, t.cury
-				// 	t.CursorDown()
-				// 	if prevCurY >= t.selection.EndLine && prevCurX >= t.selection.EndCol {
-				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	} else {
-				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	}
-				// }
+				if !t.selectMode {
+					t.selection.Start = t.cursor
+					t.SetCursor(t.cursor.Down())
+					t.selection.End = t.cursor
+					t.selectMode = true
+					t.ScrollToCursor()
+					break
+				}
+
+				if t.selection.End.Eq(t.cursor) {
+					t.SetCursor(t.cursor.Down())
+					t.selection.End = t.cursor
+				} else {
+					t.SetCursor(t.cursor.Down())
+					t.selection.Start = t.cursor
+				}
 			} else {
 				t.selectMode = false
 				t.SetCursor(t.cursor.Down())
-				t.ScrollToCursor()
 			}
+			t.ScrollToCursor()
 		case tcell.KeyLeft:
 			if ev.Modifiers() == tcell.ModShift {
-				// if !t.selectMode {
-				// 	t.CursorLeft() // We want the character to the left to be selected only (think insert)
-				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	t.selectMode = true
-				// } else {
-				// 	prevCurX, prevCurY := t.curx, t.cury
-				// 	t.CursorLeft()
-				// 	if prevCurY == t.selection.StartLine && prevCurX == t.selection.StartCol { // We are moving the start...
-				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	} else {
-				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	}
-				// }
+				if !t.selectMode {
+					t.SetCursor(t.cursor.Left())
+					t.selection.Start, t.selection.End = t.cursor, t.cursor
+					t.selectMode = true
+					t.ScrollToCursor()
+					break // Select only a single character at start
+				}
+
+				if t.selection.Start.Eq(t.cursor) {
+					t.SetCursor(t.cursor.Left())
+					t.selection.Start = t.cursor
+				} else {
+					t.SetCursor(t.cursor.Left())
+					t.selection.End = t.cursor
+				}
 			} else {
 				t.selectMode = false
 				t.SetCursor(t.cursor.Left())
-				t.ScrollToCursor()
 			}
+			t.ScrollToCursor()
 		case tcell.KeyRight:
 			if ev.Modifiers() == tcell.ModShift {
-				// if !t.selectMode { // If we are not already selecting...
-				// 	// Reset the selection to cursor pos
-				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	t.selectMode = true
-				// } else {
-				// 	prevCurX, prevCurY := t.curx, t.cury
-				// 	t.CursorRight() // Advance the cursor
-				// 	if prevCurY == t.selection.EndLine && prevCurX == t.selection.EndCol {
-				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-				// 	} else {
-				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-				// 	}
-				// }
+				if !t.selectMode {
+					t.selection.Start, t.selection.End = t.cursor, t.cursor
+					t.selectMode = true
+					break
+				}
+
+				if t.selection.End.Eq(t.cursor) {
+					t.SetCursor(t.cursor.Right())
+					t.selection.End = t.cursor
+				} else {
+					t.SetCursor(t.cursor.Right())
+					t.selection.Start = t.cursor
+				}
 			} else {
 				t.selectMode = false
 				t.SetCursor(t.cursor.Right())
-				t.ScrollToCursor()
 			}
+			t.ScrollToCursor()
 		case tcell.KeyHome:
 			cursLine, _ := t.cursor.GetLineCol()
 			// TODO: go to first (non-whitespace) character on current line, if we are not already there

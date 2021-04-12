@@ -17,25 +17,17 @@ type position struct {
 // The start and end are inclusive. If the EndCol of a Region is one more than the
 // last column of a line, then it points to the line delimiter at the end of that
 // line. It is understood that as a Region spans multiple lines, those connecting
-// line-delimiters are included, as well.
+// line-delimiters are included in the selection, as well.
 type Region struct {
-	buffer *Buffer
-	start  position
-	end    position
+	Start Cursor
+	End   Cursor
 }
 
 func NewRegion(in *Buffer) Region {
 	return Region{
-		buffer: in,
+		NewCursor(in),
+		NewCursor(in),
 	}
-}
-
-func (r Region) Start() (line, col int) {
-	return r.start.line, r.start.col
-}
-
-func (r Region) End() (line, col int) {
-	return r.end.line, r.end.col
 }
 
 // A Cursor's functions emulate common cursor actions. To have a Cursor be
@@ -104,4 +96,8 @@ func (c Cursor) GetLineCol() (line, col int) {
 func (c Cursor) SetLineCol(line, col int) Cursor {
 	c.line, c.col = (*c.buffer).ClampLineCol(line, col)
 	return c
+}
+
+func (c Cursor) Eq(other Cursor) bool {
+	return c.buffer == other.buffer && c.line == other.line && c.col == other.col
 }
