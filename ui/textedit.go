@@ -14,17 +14,6 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-// A Selection represents a region of the buffer to be selected for text editing
-// purposes. It is asserted that the start position is less than the end position.
-// The start and end are inclusive. If the EndCol of a Region is one more than the
-// last column of a line, then it points to the line delimiter at the end of that
-// line. It is understood that as a Region spans multiple lines, those connecting
-// line-delimiters are included, as well.
-type Region struct {
-	StartLine, StartCol int
-	EndLine, EndCol     int
-}
-
 // TextEdit is a field for line-based editing. It features syntax highlighting
 // tools, is autocomplete ready, and contains the various information about
 // content being edited.
@@ -39,13 +28,12 @@ type TextEdit struct {
 	FilePath    string // Will be empty if the file has not been saved yet
 
 	screen           *tcell.Screen // We keep our own reference to the screen for cursor purposes.
-	curx, cury       int // Zero-based: cursor points before the character at that position.
-	prevCurCol       int // Previous maximum column the cursor was at, when the user pressed left or right
+	cursor           buffer.Cursor
 	scrollx, scrolly int // X and Y offset of view, known as scroll
 	theme            *Theme
 
-	selection  Region // Selection: selectMode determines if it should be used
-	selectMode bool   // Whether the user is actively selecting text
+	selection  buffer.Region // Selection: selectMode determines if it should be used
+	selectMode bool          // Whether the user is actively selecting text
 
 	baseComponent
 }
@@ -88,6 +76,7 @@ loop:
 	}
 
 	t.Buffer = buffer.NewRopeBuffer(contents)
+	t.cursor = buffer.NewCursor(&t.Buffer)
 
 	// TODO: replace with automatic determination of language via filetype
 	lang := &buffer.Language{
@@ -156,37 +145,44 @@ func (t *TextEdit) Delete(forwards bool) {
 	t.Dirty = true
 
 	var deletedLine bool // Whether any whole line has been deleted (changing the # of lines)
-	startingLine := t.cury
+	cursLine, cursCol := t.cursor.GetLineCol()
+	startingLine := cursLine
 
 	if t.selectMode { // If text is selected, delete the whole selection
 		t.selectMode = false // Disable selection and prevent infinite loop
 
-		// Delete the region
-		t.Buffer.Remove(t.selection.StartLine, t.selection.StartCol, t.selection.EndLine, t.selection.EndCol)
-		t.SetLineCol(t.selection.StartLine, t.selection.StartCol) // Set cursor to start of region
+		startLine, startCol := t.selection.Start()
+		endLine, endCol := t.selection.End()
 
-		deletedLine = t.selection.StartLine != t.selection.EndLine
+		// Delete the region
+		t.Buffer.Remove(startLine, startCol, endLine, endCol)
+		t.cursor.SetLineCol(startLine, startCol) // Set cursor to start of region
+
+		deletedLine = startLine != endLine
 	} else { // Not deleting selection
 		if forwards { // Delete the character after the cursor
 			// If the cursor is not at the end of the last line...
-			if t.cury < t.Buffer.Lines()-1 || t.curx < t.Buffer.RunesInLine(t.cury) {
-				bytes := t.Buffer.Slice(t.cury, t.curx, t.cury, t.curx) // Get the character at cursor
+			if cursLine < t.Buffer.Lines()-1 || cursCol < t.Buffer.RunesInLine(cursLine) {
+				bytes := t.Buffer.Slice(cursLine, cursCol, cursLine, cursCol) // Get the character at cursor
 				deletedLine = bytes[0] == '\n'
 
-				t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
+				t.Buffer.Remove(cursLine, cursCol, cursLine, cursCol) // Remove character at cursor
 			}
 		} else { // Delete the character before the cursor
 			// If the cursor is not at the first column of the first line...
-			if t.cury > 0 || t.curx > 0 {
-				t.CursorLeft() // Back up to that character
+			if cursLine > 0 || cursCol > 0 {
+				t.cursor.Left() // Back up to that character
 
-				bytes := t.Buffer.Slice(t.cury, t.curx, t.cury, t.curx) // Get the char at cursor
+				bytes := t.Buffer.Slice(cursLine, cursCol, cursLine, cursCol) // Get the char at cursor
 				deletedLine = bytes[0] == '\n'
 
-				t.Buffer.Remove(t.cury, t.curx, t.cury, t.curx) // Remove character at cursor
+				t.Buffer.Remove(cursLine, cursCol, cursLine, cursCol) // Remove character at cursor
 			}
 		}
 	}
+
+	t.ScrollToCursor()
+	t.updateCursorVisibility()
 
 	if deletedLine {
 		t.Highlighter.InvalidateLines(startingLine, t.Buffer.Lines()-1)
@@ -206,7 +202,8 @@ func (t *TextEdit) Insert(contents string) {
 	}
 
 	var lineInserted bool // True if contents contains a '\n'
-	startingLine := t.cury
+	cursLine, cursCol := t.cursor.GetLineCol()
+	startingLine := cursLine
 
 	runes := []rune(contents)
 	for i := 0; i < len(runes); i++ {
@@ -216,13 +213,11 @@ func (t *TextEdit) Insert(contents string) {
 			// If the character after is a \n, then it is a CRLF
 			if i+1 < len(runes) && runes[i+1] == '\n' {
 				i++ // Consume '\n' after
-				t.Buffer.Insert(t.cury, t.curx, []byte{'\n'})
-				t.SetLineCol(t.cury+1, 0) // Go to the start of that new line
+				t.Buffer.Insert(cursLine, cursCol, []byte{'\n'})
 				lineInserted = true
 			}
 		case '\n':
-			t.Buffer.Insert(t.cury, t.curx, []byte{'\n'})
-			t.SetLineCol(t.cury+1, 0) // Go to the start of that new line
+			t.Buffer.Insert(cursLine, cursCol, []byte{'\n'})
 			lineInserted = true
 		case '\b':
 			t.Delete(false) // Delete the character before the cursor
@@ -230,18 +225,19 @@ func (t *TextEdit) Insert(contents string) {
 			if !t.UseHardTabs { // If this file does not use hard tabs...
 				// Insert spaces
 				spaces := strings.Repeat(" ", t.TabSize)
-				t.Buffer.Insert(t.cury, t.curx, []byte(spaces))
-				t.SetLineCol(t.cury, t.curx+len(spaces)) // Advance the cursor
+				t.Buffer.Insert(cursLine, cursCol, []byte(spaces))
 				break
 			}
 			fallthrough // Append the \t character
 		default:
 			// Insert character into line
-			t.Buffer.Insert(t.cury, t.curx, []byte(string(ch)))
-			t.SetLineCol(t.cury, t.curx+1) // Advance the cursor
+			t.Buffer.Insert(cursLine, cursCol, []byte(string(ch)))
+			// t.SetLineCol(t.cury, t.curx+1) // Advance the cursor
 		}
 	}
-	t.prevCurCol = t.curx
+
+	t.ScrollToCursor()
+	t.updateCursorVisibility()
 
 	if lineInserted {
 		t.Highlighter.InvalidateLines(startingLine, t.Buffer.Lines()-1)
@@ -262,34 +258,24 @@ func (t *TextEdit) getTabCountInLineAtCol(line, col int) int {
 	return 0
 }
 
-// GetLineCol returns (line, col) of the cursor. Zero is origin for both.
-func (t *TextEdit) GetLineCol() (int, int) {
-	return t.cury, t.curx
+// updateCursorVisibility sets the position of the terminal's cursor with the
+// cursor of the TextEdit. Sends a signal to show the cursor if the TextEdit
+// is focused and not in select mode.
+func (t *TextEdit) updateCursorVisibility() {
+	if t.focused && !t.selectMode {
+		columnWidth := t.getColumnWidth()
+		line, col := t.cursor.GetLineCol()
+		tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1)
+		(*t.screen).ShowCursor(t.x+columnWidth+col+tabOffset-t.scrollx, t.y+line-t.scrolly)
+	}
 }
 
-// The same as updateTerminalCursor but the caller can provide the tabOffset to
-// save the original function a calculation.
-func (t *TextEdit) updateTerminalCursorNoHelper(columnWidth, tabOffset int) {
-	(*t.screen).ShowCursor(t.x+columnWidth+t.curx+tabOffset-t.scrollx, t.y+t.cury-t.scrolly)
-}
-
-// updateTerminalCursor sets the position of the cursor with the cursor position
-// properties of the TextEdit. Always sends a signal to *show* the cursor.
-func (t *TextEdit) updateTerminalCursor() {
-	columnWidth := t.getColumnWidth()
-	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize - 1)
-	t.updateTerminalCursorNoHelper(columnWidth, tabOffset)
-}
-
-// SetLineCol sets the cursor line and column position. Zero is origin for both.
-// If `line` is out of bounds, `line` will be clamped to the closest available line.
-// If `col` is out of bounds, `col` will be clamped to the closest column available for the line.
-// Will scroll the TextEdit just enough to see the line the cursor is at.
-func (t *TextEdit) SetLineCol(line, col int) {
-	line, col = t.Buffer.ClampLineCol(line, col)
+// Scroll the screen if the cursor is out of view.
+func (t *TextEdit) ScrollToCursor() {
+	line, col := t.cursor.GetLineCol()
 
 	// Handle hard tabs
-	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1) // Offset for the current line from hard tabs (temporary; purely visual)
+	tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1) // Offset for the current line from hard tabs
 
 	// Scroll the screen when going to lines out of view
 	if line >= t.scrolly+t.height-1 { // If the new line is below view...
@@ -306,68 +292,15 @@ func (t *TextEdit) SetLineCol(line, col int) {
 	} else if col+tabOffset < t.scrollx { // If the new column is left of view
 		t.scrollx = col + tabOffset // Scroll left enough to view that column
 	}
-
-	if t.scrollx < 0 {
-		panic("oops")
-	}
-
-	t.cury, t.curx = line, col
-	if t.focused && !t.selectMode {
-		// Update terminal cursor position
-		t.updateTerminalCursorNoHelper(columnWidth, tabOffset)
-	}
 }
 
-// CursorUp moves the cursor up a line.
-func (t *TextEdit) CursorUp() {
-	if t.cury <= 0 { // If the cursor is at the first line...
-		t.SetLineCol(t.cury, 0) // Go to beginning
-	} else {
-		line, col := t.Buffer.ClampLineCol(t.cury-1, t.prevCurCol)
-		if t.UseHardTabs { // When using hard tabs, subtract offsets produced by tabs
-			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1)
-			col -= tabOffset // We still count each \t in the col
-		}
-		t.SetLineCol(line, col)
-	}
+func (t *TextEdit) GetCursor() buffer.Cursor {
+	return t.cursor
 }
 
-// CursorDown moves the cursor down a line.
-func (t *TextEdit) CursorDown() {
-	if t.cury >= t.Buffer.Lines()-1 { // If the cursor is at the last line...
-		t.SetLineCol(t.cury, math.MaxInt32) // Go to end of current line
-	} else {
-		line, col := t.Buffer.ClampLineCol(t.cury+1, t.prevCurCol)
-		if t.UseHardTabs {
-			tabOffset := t.getTabCountInLineAtCol(line, col) * (t.TabSize - 1)
-			col -= tabOffset // We still count each \t in the col
-		}
-		t.SetLineCol(line, col) // Go to line below
-	}
-}
-
-// CursorLeft moves the cursor left a column.
-func (t *TextEdit) CursorLeft() {
-	if t.curx <= 0 && t.cury != 0 { // If we are at the beginning of the current line...
-		t.SetLineCol(t.cury-1, math.MaxInt32) // Go to end of line above
-	} else {
-		t.SetLineCol(t.cury, t.curx-1)
-	}
-	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize - 1)
-	t.prevCurCol = t.curx + tabOffset
-}
-
-// CursorRight moves the cursor right a column.
-func (t *TextEdit) CursorRight() {
-	// If we are at the end of the current line,
-	// and not at the last line...
-	if t.curx >= t.Buffer.RunesInLine(t.cury) && t.cury < t.Buffer.Lines()-1 {
-		t.SetLineCol(t.cury+1, 0) // Go to beginning of line below
-	} else {
-		t.SetLineCol(t.cury, t.curx+1)
-	}
-	tabOffset := t.getTabCountInLineAtCol(t.cury, t.curx) * (t.TabSize - 1)
-	t.prevCurCol = t.curx + tabOffset
+func (t *TextEdit) SetCursor(newCursor buffer.Cursor) {
+	t.cursor = newCursor
+	t.updateCursorVisibility()
 }
 
 // getColumnWidth returns the width of the line numbers column if it is present.
@@ -386,7 +319,9 @@ func (t *TextEdit) getColumnWidth() int {
 func (t *TextEdit) GetSelectedBytes() []byte {
 	// TODO: there's a bug with copying text
 	if t.selectMode {
-		return t.Buffer.Slice(t.selection.StartLine, t.selection.StartCol, t.selection.EndLine, t.selection.EndCol)
+		startLine, startCol := t.selection.Start()
+		endLine, endCol := t.selection.End()
+		return t.Buffer.Slice(startLine, startCol, endLine, endCol)
 	}
 	return []byte{}
 }
@@ -486,23 +421,26 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 						r = ' '
 					}
 
+					startLine, startCol := t.selection.Start()
+					endLine, endCol := t.selection.End()
+
 					// Determine whether we select the current rune. Also only select runes within
 					// the line bytes range.
-					if t.selectMode && line >= t.selection.StartLine && line <= t.selection.EndLine { // If we're part of a selection...
+					if t.selectMode && line >= startLine && line <= endLine { // If we're part of a selection...
 						_origRuneIdx := origRuneIdx(runeIdx)
-						if line == t.selection.StartLine { // If selection starts at this line...
-							if _origRuneIdx >= t.selection.StartCol { // And we're at or past the start col...
+						if line == startLine { // If selection starts at this line...
+							if _origRuneIdx >= startCol { // And we're at or past the start col...
 								// If the start line is also the end line...
-								if line == t.selection.EndLine {
-									if _origRuneIdx <= t.selection.EndCol { // And we're before the end of that...
+								if line == endLine {
+									if _origRuneIdx <= endCol { // And we're before the end of that...
 										selected = true
 									}
 								} else { // Definitely highlight
 									selected = true
 								}
 							}
-						} else if line == t.selection.EndLine { // If selection ends at this line...
-							if _origRuneIdx <= t.selection.EndCol { // And we're at or before the end col...
+						} else if line == endLine { // If selection ends at this line...
+							if _origRuneIdx <= endCol { // And we're at or before the end col...
 								selected = true
 							}
 						} else { // We're between the start and the end lines, definitely highlight.
@@ -547,8 +485,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 		DrawStr(s, t.x, lineY, columnStr, columnStyle) // Draw column
 	}
 
-	// Update cursor
-	t.SetLineCol(t.cury, t.curx)
+	t.updateCursorVisibility()
 }
 
 // SetFocused sets whether the TextEdit is focused. When focused, the cursor is set visible
@@ -556,7 +493,7 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 func (t *TextEdit) SetFocused(v bool) {
 	t.focused = v
 	if v {
-		t.updateTerminalCursor()
+		t.updateCursorVisibility()
 	} else {
 		(*t.screen).HideCursor()
 	}
@@ -571,95 +508,105 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		// Cursor movement
 		case tcell.KeyUp:
 			if ev.Modifiers() == tcell.ModShift {
-				if !t.selectMode {
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					t.selectMode = true
-				} else {
-					prevCurX, prevCurY := t.curx, t.cury
-					t.CursorUp()
-					// Grow the selection in the correct direction
-					if prevCurY <= t.selection.StartLine && prevCurX <= t.selection.StartCol {
-						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					} else {
-						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					}
-				}
+				// if !t.selectMode {
+				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	t.selectMode = true
+				// } else {
+				// 	prevCurX, prevCurY := t.curx, t.cury
+				// 	t.CursorUp()
+				// 	// Grow the selection in the correct direction
+				// 	if prevCurY <= t.selection.StartLine && prevCurX <= t.selection.StartCol {
+				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	} else {
+				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	}
+				// }
 			} else {
 				t.selectMode = false
-				t.CursorUp()
+				t.SetCursor(t.cursor.Up())
+				t.ScrollToCursor()
 			}
 		case tcell.KeyDown:
 			if ev.Modifiers() == tcell.ModShift {
-				if !t.selectMode {
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					t.selectMode = true
-				} else {
-					prevCurX, prevCurY := t.curx, t.cury
-					t.CursorDown()
-					if prevCurY >= t.selection.EndLine && prevCurX >= t.selection.EndCol {
-						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					} else {
-						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					}
-				}
+				// if !t.selectMode {
+				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	t.selectMode = true
+				// } else {
+				// 	prevCurX, prevCurY := t.curx, t.cury
+				// 	t.CursorDown()
+				// 	if prevCurY >= t.selection.EndLine && prevCurX >= t.selection.EndCol {
+				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	} else {
+				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	}
+				// }
 			} else {
 				t.selectMode = false
-				t.CursorDown()
+				t.SetCursor(t.cursor.Down())
+				t.ScrollToCursor()
 			}
 		case tcell.KeyLeft:
 			if ev.Modifiers() == tcell.ModShift {
-				if !t.selectMode {
-					t.CursorLeft() // We want the character to the left to be selected only (think insert)
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					t.selectMode = true
-				} else {
-					prevCurX, prevCurY := t.curx, t.cury
-					t.CursorLeft()
-					if prevCurY == t.selection.StartLine && prevCurX == t.selection.StartCol { // We are moving the start...
-						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					} else {
-						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					}
-				}
+				// if !t.selectMode {
+				// 	t.CursorLeft() // We want the character to the left to be selected only (think insert)
+				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	t.selectMode = true
+				// } else {
+				// 	prevCurX, prevCurY := t.curx, t.cury
+				// 	t.CursorLeft()
+				// 	if prevCurY == t.selection.StartLine && prevCurX == t.selection.StartCol { // We are moving the start...
+				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	} else {
+				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	}
+				// }
 			} else {
 				t.selectMode = false
-				t.CursorLeft()
+				t.SetCursor(t.cursor.Left())
+				t.ScrollToCursor()
 			}
 		case tcell.KeyRight:
 			if ev.Modifiers() == tcell.ModShift {
-				if !t.selectMode { // If we are not already selecting...
-					// Reset the selection to cursor pos
-					t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					t.selectMode = true
-				} else {
-					prevCurX, prevCurY := t.curx, t.cury
-					t.CursorRight() // Advance the cursor
-					if prevCurY == t.selection.EndLine && prevCurX == t.selection.EndCol {
-						t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
-					} else {
-						t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
-					}
-				}
+				// if !t.selectMode { // If we are not already selecting...
+				// 	// Reset the selection to cursor pos
+				// 	t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	t.selectMode = true
+				// } else {
+				// 	prevCurX, prevCurY := t.curx, t.cury
+				// 	t.CursorRight() // Advance the cursor
+				// 	if prevCurY == t.selection.EndLine && prevCurX == t.selection.EndCol {
+				// 		t.selection.EndLine, t.selection.EndCol = t.cury, t.curx
+				// 	} else {
+				// 		t.selection.StartLine, t.selection.StartCol = t.cury, t.curx
+				// 	}
+				// }
 			} else {
 				t.selectMode = false
-				t.CursorRight()
+				t.SetCursor(t.cursor.Right())
+				t.ScrollToCursor()
 			}
 		case tcell.KeyHome:
-			t.SetLineCol(t.cury, 0)
-			t.prevCurCol = t.curx
+			cursLine, _ := t.cursor.GetLineCol()
+			// TODO: go to first (non-whitespace) character on current line, if we are not already there
+			// otherwise actually go to first (0) character of the line
+			t.SetCursor(t.cursor.SetLineCol(cursLine, 0))
+			t.ScrollToCursor()
 		case tcell.KeyEnd:
-			t.SetLineCol(t.cury, math.MaxInt32) // Max column
-			t.prevCurCol = t.curx
+			cursLine, _ := t.cursor.GetLineCol()
+			t.SetCursor(t.cursor.SetLineCol(cursLine, math.MaxInt32)) // Max column
+			t.ScrollToCursor()
 		case tcell.KeyPgUp:
-			t.SetLineCol(t.scrolly-t.height, t.curx) // Go a page up
-			t.prevCurCol = t.curx
+			_, cursCol := t.cursor.GetLineCol()
+			t.SetCursor(t.cursor.SetLineCol(t.scrolly-t.height, cursCol)) // Go a page up
+			t.ScrollToCursor()
 		case tcell.KeyPgDn:
-			t.SetLineCol(t.scrolly+t.height*2-1, t.curx) // Go a page down
-			t.prevCurCol = t.curx
+			_, cursCol := t.cursor.GetLineCol()
+			t.SetCursor(t.cursor.SetLineCol(t.scrolly+t.height*2-1, cursCol)) // Go a page down
+			t.ScrollToCursor()
 
 		// Deleting
 		case tcell.KeyBackspace:

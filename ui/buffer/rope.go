@@ -4,13 +4,19 @@ import (
 	"io"
 	"unicode/utf8"
 
-	"github.com/zyedidia/rope"
+	ropes "github.com/zyedidia/rope"
 )
 
-type RopeBuffer rope.Node
+type RopeBuffer struct {
+	rope    *ropes.Node
+	anchors []*Cursor
+}
 
 func NewRopeBuffer(contents []byte) *RopeBuffer {
-	return (*RopeBuffer)(rope.New(contents))
+	return &RopeBuffer{
+		ropes.New(contents),
+		nil,
+	}
 }
 
 // LineColToPos returns the index of the byte at line, col. If line is less than
@@ -19,20 +25,16 @@ func NewRopeBuffer(contents []byte) *RopeBuffer {
 // length of the line, the position of the last byte of the line is returned,
 // instead.
 func (b *RopeBuffer) LineColToPos(line, col int) int {
-	var pos int
-
-	_rope := (*rope.Node)(b)
-
-	pos = b.getLineStartPos(line)
+	pos := b.getLineStartPos(line)
 
 	// Have to do this algorithm for safety. If this function was declared to panic
 	// or index out of bounds memory, if col > the given line length, it would be
 	// more efficient and simpler. But unfortunately, I believe it is necessary.
 	if col > 0 {
-		_, r := _rope.SplitAt(pos)
-		l, _ := r.SplitAt(_rope.Len() - pos)
+		_, r := b.rope.SplitAt(pos)
+		l, _ := r.SplitAt(b.rope.Len() - pos)
 
-		l.EachLeaf(func(n *rope.Node) bool {
+		l.EachLeaf(func(n *ropes.Node) bool {
 			data := n.Value() // Reference; not a copy.
 			var i int
 			for i < len(data) {
@@ -60,12 +62,11 @@ func (b *RopeBuffer) Line(line int) []byte {
 	pos := b.getLineStartPos(line)
 	bytes := 0
 
-	_rope := (*rope.Node)(b)
-	_, r := _rope.SplitAt(pos)
-	l, _ := r.SplitAt(_rope.Len() - pos)
+	_, r := b.rope.SplitAt(pos)
+	l, _ := r.SplitAt(b.rope.Len() - pos)
 
 	var isCRLF bool // true if the last byte was '\r'
-	l.EachLeaf(func(n *rope.Node) bool {
+	l.EachLeaf(func(n *ropes.Node) bool {
 		data := n.Value() // Reference; not a copy.
 		var i int
 		for i < len(data) {
@@ -90,7 +91,7 @@ func (b *RopeBuffer) Line(line int) []byte {
 		return false // Have not read the whole line, yet
 	})
 
-	return _rope.Slice(pos, pos+bytes) // NOTE: may be faster to do it ourselves
+	return b.rope.Slice(pos, pos+bytes) // NOTE: may be faster to do it ourselves
 }
 
 // Returns a slice of the buffer from startLine, startCol, to endLine, endCol,
@@ -98,22 +99,22 @@ func (b *RopeBuffer) Line(line int) []byte {
 // so do not write to it.
 func (b *RopeBuffer) Slice(startLine, startCol, endLine, endCol int) []byte {
 	endPos := b.LineColToPos(endLine, endCol)
-	if length := (*rope.Node)(b).Len(); endPos >= length {
+	if length := b.rope.Len(); endPos >= length {
 		endPos = length - 1
 	}
-	return (*rope.Node)(b).Slice(b.LineColToPos(startLine, startCol), endPos+1)
+	return b.rope.Slice(b.LineColToPos(startLine, startCol), endPos+1)
 }
 
 // Bytes returns all of the bytes in the buffer. This function is very likely
 // to copy all of the data in the buffer. Use sparingly. Try using other methods,
 // where possible.
 func (b *RopeBuffer) Bytes() []byte {
-	return (*rope.Node)(b).Value()
+	return b.rope.Value()
 }
 
 // Insert copies a byte slice (inserting it) into the position at line, col.
 func (b *RopeBuffer) Insert(line, col int, value []byte) {
-	(*rope.Node)(b).Insert(b.LineColToPos(line, col), value)
+	b.rope.Insert(b.LineColToPos(line, col), value)
 }
 
 // Remove deletes any characters between startLine, startCol, and endLine,
@@ -122,14 +123,14 @@ func (b *RopeBuffer) Remove(startLine, startCol, endLine, endCol int) {
 	start := b.LineColToPos(startLine, startCol)
 	end := b.LineColToPos(endLine, endCol) + 1
 
-	if len := (*rope.Node)(b).Len(); end >= len {
+	if len := b.rope.Len(); end >= len {
 		end = len
 		if start > end {
 			start = end
 		}
 	}
 
-	(*rope.Node)(b).Remove(start, end)
+	b.rope.Remove(start, end)
 }
 
 // Returns the number of occurrences of 'sequence' in the buffer, within the range
@@ -137,19 +138,19 @@ func (b *RopeBuffer) Remove(startLine, startCol, endLine, endCol int) {
 func (b *RopeBuffer) Count(startLine, startCol, endLine, endCol int, sequence []byte) int {
 	startPos := b.LineColToPos(startLine, startCol)
 	endPos := b.LineColToPos(endLine, endCol)
-	return (*rope.Node)(b).Count(startPos, endPos, sequence)
+	return b.rope.Count(startPos, endPos, sequence)
 }
 
 // Len returns the number of bytes in the buffer.
 func (b *RopeBuffer) Len() int {
-	return (*rope.Node)(b).Len()
+	return b.rope.Len()
 }
 
 // Lines returns the number of lines in the buffer. If the buffer is empty,
 // 1 is returned, because there is always at least one line. This function
 // basically counts the number of newline ('\n') characters in a buffer.
 func (b *RopeBuffer) Lines() int {
-	rope := (*rope.Node)(b)
+	rope := b.rope
 	return rope.Count(0, rope.Len(), []byte{'\n'}) + 1
 }
 
@@ -158,17 +159,13 @@ func (b *RopeBuffer) Lines() int {
 // which means the byte is on the last, and empty, line of the buffer. If line is greater
 // than or equal to the number of lines in the buffer, a panic is issued.
 func (b *RopeBuffer) getLineStartPos(line int) int {
-	_rope := (*rope.Node)(b)
 	var pos int
 
 	if line > 0 {
-		_rope.IndexAllFunc(0, _rope.Len(), []byte{'\n'}, func(idx int) bool {
+		b.rope.IndexAllFunc(0, b.rope.Len(), []byte{'\n'}, func(idx int) bool {
 			line--
-			pos = idx + 1  // idx+1 = start of line after delimiter
-			if line <= 0 { // If pos is now the start of the line we're searching for...
-				return true // Stop indexing
-			}
-			return false
+			pos = idx + 1    // idx+1 = start of line after delimiter
+			return line <= 0 // If pos is now the start of the line we're searching for
 		})
 	}
 
@@ -185,8 +182,7 @@ func (b *RopeBuffer) getLineStartPos(line int) int {
 func (b *RopeBuffer) RunesInLineWithDelim(line int) int {
 	linePos := b.getLineStartPos(line)
 
-	_rope := (*rope.Node)(b)
-	ropeLen := _rope.Len()
+	ropeLen := b.rope.Len()
 
 	if linePos >= ropeLen {
 		return 0
@@ -194,11 +190,11 @@ func (b *RopeBuffer) RunesInLineWithDelim(line int) int {
 
 	var count int
 
-	_, r := _rope.SplitAt(linePos)
+	_, r := b.rope.SplitAt(linePos)
 	l, _ := r.SplitAt(ropeLen - linePos)
 
 	var isCRLF bool
-	l.EachLeaf(func(n *rope.Node) bool {
+	l.EachLeaf(func(n *ropes.Node) bool {
 		data := n.Value() // Reference; not a copy.
 		var i int
 		for i < len(data) {
@@ -229,8 +225,7 @@ func (b *RopeBuffer) RunesInLineWithDelim(line int) int {
 func (b *RopeBuffer) RunesInLine(line int) int {
 	linePos := b.getLineStartPos(line)
 
-	_rope := (*rope.Node)(b)
-	ropeLen := _rope.Len()
+	ropeLen := b.rope.Len()
 
 	if linePos >= ropeLen {
 		return 0
@@ -238,11 +233,11 @@ func (b *RopeBuffer) RunesInLine(line int) int {
 
 	var count int
 
-	_, r := _rope.SplitAt(linePos)
+	_, r := b.rope.SplitAt(linePos)
 	l, _ := r.SplitAt(ropeLen - linePos)
 
 	var isCRLF bool
-	l.EachLeaf(func(n *rope.Node) bool {
+	l.EachLeaf(func(n *ropes.Node) bool {
 		data := n.Value() // Reference; not a copy.
 		var i int
 		for i < len(data) {
@@ -299,7 +294,7 @@ func (b *RopeBuffer) PosToLineCol(pos int) (int, int) {
 		return line, col
 	}
 
-	(*rope.Node)(b).EachLeaf(func(n *rope.Node) bool {
+	b.rope.EachLeaf(func(n *ropes.Node) bool {
 		data := n.Value()
 		var i int
 		for i < len(data) {
@@ -330,5 +325,31 @@ func (b *RopeBuffer) PosToLineCol(pos int) (int, int) {
 }
 
 func (b *RopeBuffer) WriteTo(w io.Writer) (int64, error) {
-	return (*rope.Node)(b).WriteTo(w)
+	return b.rope.WriteTo(w)
+}
+
+// RegisterCursor adds the Cursor to a slice which the Buffer uses to update
+// each Cursor based on changes that occur in the Buffer. Various functions are
+// called on the Cursor depending upon where the edits occurred and how it should
+// modify the Cursor's position. Unregister a Cursor before deleting it from
+// memory, or forgetting it, with UnregisterPosition.
+func (b *RopeBuffer) RegisterCursor(cursor *Cursor) {
+	if cursor == nil {
+		return
+	}
+	b.anchors = append(b.anchors, cursor)
+}
+
+// UnregisterCursor will remove the cursor from the list of watched Cursors.
+// It is mandatory that a Cursor be unregistered before being freed from memory,
+// or otherwise being forgotten.
+func (b *RopeBuffer) UnregisterCursor(cursor *Cursor) {
+	for i, v := range b.anchors {
+		if cursor == v {
+			// Delete item at i without preserving order
+			b.anchors[i] = b.anchors[len(b.anchors)-1]
+			b.anchors[len(b.anchors)-1] = nil
+			b.anchors = b.anchors[:len(b.anchors)-1]
+		}
+	}
 }

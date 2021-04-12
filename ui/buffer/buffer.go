@@ -75,4 +75,16 @@ type Buffer interface {
 	PosToLineCol(pos int) (int, int)
 
 	WriteTo(w io.Writer) (int64, error)
+
+	// RegisterCursor adds the Cursor to a slice which the Buffer uses to update
+	// each Cursor based on changes that occur in the Buffer. Various functions are
+	// called on the Cursor depending upon where the edits occurred and how it should
+	// modify the Cursor's position. Unregister a Cursor before deleting it from
+	// memory, or forgetting it, with UnregisterPosition.
+	RegisterCursor(cursor *Cursor)
+
+	// UnregisterCursor will remove the cursor from the list of watched Cursors.
+	// It is mandatory that a Cursor be unregistered before being freed from memory,
+	// or otherwise being forgotten.
+	UnregisterCursor(cursor *Cursor)
 }

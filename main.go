@@ -301,7 +301,7 @@ func main() {
 		panelContainer.SelectPrev()
 		changeFocus(panelContainer)
 	}}, &ui.ItemEntry{Name: "Focus Up", QuickChar: -1, Shortcut: "Alt+Up", Callback: func() {
-		
+
 	}}, &ui.ItemEntry{Name: "Focus Down", QuickChar: -1, Shortcut: "Alt+Down", Callback: func() {
 
 	}}, &ui.ItemEntry{Name: "Focus Left", QuickChar: -1, Shortcut: "Alt+Left", Callback: func() {
@@ -399,7 +399,7 @@ func main() {
 		if te != nil {
 			callback := func(line int) {
 				te := getActiveTextEdit()
-				te.SetLineCol(line-1, 0)
+				te.SetCursor(te.GetCursor().SetLineCol(line-1, 0))
 				// Hide dialog
 				dialog = nil
 				changeFocus(panelContainer)
@@ -448,7 +448,7 @@ func main() {
 				delim = "LF"
 			}
 
-			line, col := te.GetLineCol()
+			line, col := te.GetCursor().GetLineCol()
 
 			var tabs string
 			if te.UseHardTabs {
