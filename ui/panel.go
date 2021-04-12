@@ -132,7 +132,7 @@ func (p *Panel) Draw(s tcell.Screen) {
 // SetFocused sets this Panel's Focused field to `v`. Then, if the Panel's Kind
 // is PanelKindSingle, it sets its child (not a Panel) focused to `v`, also.
 func (p *Panel) SetFocused(v bool) {
-	p.Focused = v
+	p.focused = v
 	switch p.Kind {
 	case PanelKindSplitVert:
 		fallthrough
