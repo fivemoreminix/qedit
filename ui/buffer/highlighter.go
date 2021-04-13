@@ -108,15 +108,13 @@ func (h *Highlighter) updateLines(startLine, endLine int) {
 			indexes = k.Start.FindAllIndex(bytes, -1) // Attempt to find the start match
 		}
 
-		if indexes != nil {
-			for i := range indexes {
-				startLine, startCol := h.Buffer.PosToLineCol(indexes[i][0] + startPos)
-				endLine, endCol := h.Buffer.PosToLineCol(indexes[i][1] - 1 + startPos)
+		for i := range indexes {
+			startLine, startCol := h.Buffer.PosToLineCol(indexes[i][0] + startPos)
+			endLine, endCol := h.Buffer.PosToLineCol(indexes[i][1] - 1 + startPos)
 
-				match := Match{startCol, endLine, endCol, v}
+			match := Match{startCol, endLine, endCol, v}
 
-				h.lineMatches[startLine] = append(h.lineMatches[startLine], match) // Unsorted
-			}
+			h.lineMatches[startLine] = append(h.lineMatches[startLine], match) // Unsorted
 		}
 	}
 
