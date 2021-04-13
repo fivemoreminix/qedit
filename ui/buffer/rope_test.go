@@ -127,3 +127,22 @@ func TestRopeSlice(t *testing.T) {
 		t.Errorf("Second line and slice were not equal, got \"%s\"", secondLine)
 	}
 }
+
+func TestRopeAnchors(t *testing.T) {
+	var buf Buffer = NewRopeBuffer([]byte("abc\ndef\nghi"))
+	myCursor := Cursor{buffer: &buf, position: position{1, 1}} // Points to 'e' on second line
+
+	buf.RegisterCursor(&myCursor) // Now the buffer will move the cursor based on changes to contents
+
+	buf.Remove(1, 0, 1, 3) // Remove whole second line ('d' to '\n')
+	if line, col := myCursor.GetLineCol(); line != 1 && col != 0 {
+		t.Errorf("Expected cursor line,col: %d,%d ; got %d,%d", 1, 0, line, col)
+	}
+
+	buf.Insert(0, 0, []byte("def\n")) // "def\nabc\nghi"
+	if line, col := myCursor.GetLineCol(); line != 2 && col != 0 {
+		t.Errorf("Expected cursor line,col: %d,%d ; got %d,%d", 2, 0, line, col)
+	}
+
+	buf.UnregisterCursor(&myCursor)
+}
