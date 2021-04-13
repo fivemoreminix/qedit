@@ -115,6 +115,7 @@ func (b *RopeBuffer) Bytes() []byte {
 // Insert copies a byte slice (inserting it) into the position at line, col.
 func (b *RopeBuffer) Insert(line, col int, value []byte) {
 	b.rope.Insert(b.LineColToPos(line, col), value)
+	b.shiftAnchors(line, col, utf8.RuneCount(value))
 }
 
 // Remove deletes any characters between startLine, startCol, and endLine,
@@ -126,11 +127,15 @@ func (b *RopeBuffer) Remove(startLine, startCol, endLine, endCol int) {
 	if len := b.rope.Len(); end >= len {
 		end = len
 		if start > end {
-			start = end
+			return
 		}
 	}
 
 	b.rope.Remove(start, end)
+	// Shift anchors within the range
+	b.shiftAnchorsRemovedRange(start, startLine, startCol, endLine, endCol)
+	// Shift anchors after the range
+	b.shiftAnchors(endLine, endCol+1, start-end-1)
 }
 
 // Returns the number of occurrences of 'sequence' in the buffer, within the range
@@ -326,6 +331,31 @@ func (b *RopeBuffer) PosToLineCol(pos int) (int, int) {
 
 func (b *RopeBuffer) WriteTo(w io.Writer) (int64, error) {
 	return b.rope.WriteTo(w)
+}
+
+// Currently meant for the Remove function: imagine if the removed region passes through a Cursor position.
+// We want to shift the cursor to the start of the region, based upon where the cursor position is.
+func (b *RopeBuffer) shiftAnchorsRemovedRange(startPos, startLine, startCol, endLine, endCol int) {
+	for _, v := range b.anchors {
+		cursorLine, cursorCol := v.GetLineCol()
+		if cursorLine >= startLine && cursorLine <= endLine {
+			// If the anchor is not within the start or end columns
+			if (cursorLine == startLine && cursorCol < startCol) || (cursorLine == endLine && cursorCol > endCol) {
+				continue
+			}
+			cursorPos := b.LineColToPos(cursorLine, cursorCol)
+			v.line, v.col = b.PosToLineCol(cursorPos + (startPos - cursorPos))
+		}
+	}
+}
+
+func (b *RopeBuffer) shiftAnchors(insertLine, insertCol, runeCount int) {
+	for _, v := range b.anchors {
+		cursorLine, cursorCol := v.GetLineCol()
+		if insertLine < cursorLine || (insertLine == cursorLine && insertCol <= cursorCol) {
+			v.line, v.col = b.PosToLineCol(b.LineColToPos(cursorLine, cursorCol) + runeCount)
+		}
+	}
 }
 
 // RegisterCursor adds the Cursor to a slice which the Buffer uses to update

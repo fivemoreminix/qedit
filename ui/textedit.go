@@ -77,6 +77,7 @@ loop:
 
 	t.Buffer = buffer.NewRopeBuffer(contents)
 	t.cursor = buffer.NewCursor(&t.Buffer)
+	t.Buffer.RegisterCursor(&t.cursor)
 	t.selection = buffer.NewRegion(&t.Buffer)
 
 	// TODO: replace with automatic determination of language via filetype
@@ -173,6 +174,7 @@ func (t *TextEdit) Delete(forwards bool) {
 			// If the cursor is not at the first column of the first line...
 			if cursLine > 0 || cursCol > 0 {
 				t.cursor = t.cursor.Left() // Back up to that character
+				cursLine, cursCol = t.cursor.GetLineCol()
 
 				bytes := t.Buffer.Slice(cursLine, cursCol, cursLine, cursCol) // Get the char at cursor
 				deletedLine = bytes[0] == '\n'
@@ -233,7 +235,6 @@ func (t *TextEdit) Insert(contents string) {
 		default:
 			// Insert character into line
 			t.Buffer.Insert(cursLine, cursCol, []byte(string(ch)))
-			// t.SetLineCol(t.cury, t.curx+1) // Advance the cursor
 		}
 	}
 
