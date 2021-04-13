@@ -476,7 +476,6 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 				col += runewidth.RuneWidth(r)
 
-				// Understanding the tab simulation is unnecessary; just know that it works.
 				byteIdx += size
 				runeIdx++
 			}

@@ -1,9 +1,8 @@
 package ui
 
 import (
-	"unicode/utf8"
-
 	"github.com/gdamore/tcell/v2"
+	"github.com/mattn/go-runewidth"
 )
 
 // DrawRect renders a filled box at `x` and `y`, of size `width` and `height`.
@@ -16,22 +15,20 @@ func DrawRect(s tcell.Screen, x, y, width, height int, char rune, style tcell.St
 	}
 }
 
-// DrawStr will render each character of a string at `x` and `y`.
-func DrawStr(s tcell.Screen, x, y int, str string, style tcell.Style) {
+// DrawStr will render each character of a string at `x` and `y`. Returned is
+// the number of columns that were drawn to the screen.
+func DrawStr(s tcell.Screen, x, y int, str string, style tcell.Style) int {
 	var col int
-	bytes := []byte(str)
-	var i int
-	for i < len(bytes) {
-		r, size := utf8.DecodeRune(bytes[i:])
+	for _, r := range str {
 		if r == '\n' {
 			col = 0
 			y++
 		} else {
 			s.SetContent(x+col, y, r, nil, style)
 		}
-		i += size
-		col++
+		col += runewidth.RuneWidth(r)
 	}
+	return col
 }
 
 // DrawQuickCharStr renders a string very similar to how DrawStr works, but stylizes the
@@ -41,20 +38,17 @@ func DrawQuickCharStr(s tcell.Screen, x, y int, str string, quickCharIdx int, st
 	var col int
 	var runeIdx int
 
-	bytes := []byte(str)
-	for i := 0; i < len(bytes); runeIdx++ { // i is a byte index
-		r, size := utf8.DecodeRune(bytes[i:])
-
+	for _, r := range str {
 		sty := style
 		if runeIdx == quickCharIdx {
 			sty = style.Underline(true)
 		}
 		s.SetContent(x+col, y, r, nil, sty)
 
-		i += size
-		col++
+		runeIdx++
+		col += runewidth.RuneWidth(r)
 	}
-	return col // TODO: use mattn/runewidth
+	return col
 }
 
 // DrawRectOutline draws only the outline of a rectangle, using `ul`, `ur`, `bl`, and `br`

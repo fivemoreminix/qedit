@@ -36,17 +36,12 @@ func (b *RopeBuffer) LineColToPos(line, col int) int {
 
 		l.EachLeaf(func(n *ropes.Node) bool {
 			data := n.Value() // Reference; not a copy.
-			var i int
-			for i < len(data) {
-				if col == 0 || data[i] == '\n' {
+			for _, r := range string(data) {
+				if col == 0 || r == '\n' {
 					return true // Found the position of the column
 				}
 				pos++
 				col--
-
-				// Respect Utf-8 codepoint boundaries
-				_, size := utf8.DecodeRune(data[i:])
-				i += size
 			}
 			return false // Have not gotten to the appropriate position, yet
 		})
@@ -68,11 +63,11 @@ func (b *RopeBuffer) Line(line int) []byte {
 	var isCRLF bool // true if the last byte was '\r'
 	l.EachLeaf(func(n *ropes.Node) bool {
 		data := n.Value() // Reference; not a copy.
-		var i int
-		for i < len(data) {
-			if data[i] == '\r' {
+		for i, r := range string(data) {
+			if r == '\r' {
 				isCRLF = true
-			} else if data[i] == '\n' {
+			} else if r == '\n' {
+				bytes += i // Add bytes before i
 				if isCRLF {
 					bytes += 2 // Add the CRLF bytes
 				} else {
@@ -82,12 +77,8 @@ func (b *RopeBuffer) Line(line int) []byte {
 			} else {
 				isCRLF = false
 			}
-
-			// Respect Utf-8 codepoint boundaries
-			_, size := utf8.DecodeRune(data[i:])
-			bytes += size
-			i += size
 		}
+		bytes += len(data)
 		return false // Have not read the whole line, yet
 	})
 
@@ -198,26 +189,13 @@ func (b *RopeBuffer) RunesInLineWithDelim(line int) int {
 	_, r := b.rope.SplitAt(linePos)
 	l, _ := r.SplitAt(ropeLen - linePos)
 
-	var isCRLF bool
 	l.EachLeaf(func(n *ropes.Node) bool {
 		data := n.Value() // Reference; not a copy.
-		var i int
-		for i < len(data) {
+		for _, r := range string(data) {
 			count++ // Before: we count the line delimiter
-			if data[i] == '\r' {
-				isCRLF = true
-			} else if data[i] == '\n' {
+			if r == '\n' {
 				return true // Read (past-tense) the whole line
-			} else {
-				if isCRLF {
-					isCRLF = false
-					count++ // Add the '\r' we previously thought was part of the delim.
-				}
 			}
-
-			// Respect Utf-8 codepoint boundaries
-			_, size := utf8.DecodeRune(data[i:])
-			i += size
 		}
 		return false // Have not read the whole line, yet
 	})
@@ -244,11 +222,10 @@ func (b *RopeBuffer) RunesInLine(line int) int {
 	var isCRLF bool
 	l.EachLeaf(func(n *ropes.Node) bool {
 		data := n.Value() // Reference; not a copy.
-		var i int
-		for i < len(data) {
-			if data[i] == '\r' {
+		for _, r := range string(data) {
+			if r == '\r' {
 				isCRLF = true
-			} else if data[i] == '\n' {
+			} else if r == '\n' {
 				return true // Read (past-tense) the whole line
 			} else {
 				if isCRLF {
@@ -257,10 +234,6 @@ func (b *RopeBuffer) RunesInLine(line int) int {
 				}
 			}
 			count++
-
-			// Respect Utf-8 codepoint boundaries
-			_, size := utf8.DecodeRune(data[i:])
-			i += size
 		}
 		return false // Have not read the whole line, yet
 	})
