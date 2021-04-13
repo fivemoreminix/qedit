@@ -365,10 +365,9 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 			lineHighlightData := t.Highlighter.GetLineMatches(line)
 			var lineHighlightDataIdx int
 
-			var byteIdx int // Byte index of lineStr
-			// X offset we draw the next rune at (some runes can be 2 cols wide)
-			col := t.x + columnWidth
-			var runeIdx int // Index into lineStr (as runes) we draw the next character at
+			var byteIdx int          // Byte index of lineStr
+			var runeIdx int          // Index into lineStr (as runes) we draw the next character at
+			col := t.x + columnWidth // X offset we draw the next rune at (some runes can be 2 cols wide)
 
 			for runeIdx < t.scrollx && byteIdx < len(lineBytes) {
 				_, size := utf8.DecodeRune(lineBytes[byteIdx:]) // Respect UTF-8
@@ -378,13 +377,10 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 
 			tabOffsetAtRuneIdx := func(idx int) int {
 				var count int
-				var i int
-				for i < len(origLineBytes) {
-					r, size := utf8.DecodeRune(origLineBytes[i:])
+				for _, r := range string(origLineBytes) {
 					if r == '\t' {
 						count++
 					}
-					i += size
 				}
 				return count * (t.TabSize - 1)
 			}
@@ -393,9 +389,11 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 			// not affected by the hard tabs becoming 4 or 8 spaces.
 			origRuneIdx := func(idx int) int { // returns the idx that is not mutated by hard tabs
 				var ridx int // new rune idx
-				var i int    // byte index
-				for idx > 0 {
-					r, size := utf8.DecodeRune(origLineBytes[i:])
+				for _, r := range string(origLineBytes) {
+					if idx <= 0 {
+						break
+					}
+
 					if r == '\t' {
 						idx -= t.TabSize
 					} else {
@@ -404,7 +402,6 @@ func (t *TextEdit) Draw(s tcell.Screen) {
 					if idx >= 0 { // causes ridx = 0, when idx = 3
 						ridx++
 					}
-					i += size
 				}
 				return ridx
 			}
