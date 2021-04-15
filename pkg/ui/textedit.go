@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/fivemoreminix/qedit/ui/buffer"
+	"github.com/fivemoreminix/qedit/pkg/buffer"
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
 )

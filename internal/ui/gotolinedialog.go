@@ -1,11 +1,11 @@
-package main
+package ui
 
 import (
 	"strconv"
 	"strings"
 
+	"github.com/fivemoreminix/qedit/pkg/ui"
 	"github.com/gdamore/tcell/v2"
-	"github.com/fivemoreminix/qedit/ui"
 )
 
 type GotoLineDialog struct {
@@ -28,8 +28,8 @@ type GotoLineDialog struct {
 func NewGotoLineDialog(s *tcell.Screen, theme *ui.Theme, lineChosenCallback func(int), cancelCallback func()) *GotoLineDialog {
 	dialog := &GotoLineDialog{
 		LineChosenCallback: lineChosenCallback,
-		screen:       s,
-		theme:        theme,
+		screen:             s,
+		theme:              theme,
 	}
 
 	dialog.inputField = ui.NewInputField(s, nil, theme.GetOrDefault("Window"))

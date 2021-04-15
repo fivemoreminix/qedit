@@ -1,4 +1,4 @@
-package main
+package clipboard
 
 import "github.com/zyedidia/clipboard"
 

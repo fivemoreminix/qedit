@@ -11,7 +11,9 @@ MIT license, this is important.
 
  - [Goals](#goals)
  - [Screenshots](#screenshots)
- - [Building](#building)
+ - [Development](#development)
+    + [Building](#building)
+    + [Layout](#layout)
  - [Contributing](#contributing)
  - [FAQ](#for-answers-and-questions-%28FAQ%29)
 
@@ -19,7 +21,8 @@ MIT license, this is important.
 
 ## Goals
 
- * DOS-like user interface library for Go/tcell (diesel)
+ * An editor designed in the [KISS](https://en.wikipedia.org/wiki/KISS_principle) principle.
+ * DOS-like user interface library for Go/tcell (pkg/ui)
  * Modern [rope](https://en.wikipedia.org/wiki/Rope_(data_structure)) buffer (used in emacs)
  * Modern text editing, including: copy/paste, mouse support, selection, etc.
  * Btree-based tiling and floating window management (panels)
@@ -32,30 +35,44 @@ MIT license, this is important.
 ![Showing the "Open files" dialog.](/screenshots/qedit-alpha-dev-open-files-dialog.png)
 ![Showing the "Edit" menu with selected text.](/screenshots/qedit-alpha-dev-copy-selection.png)
 
-## Building
+## Development
+
+### Building
 
 You will need:
 
  * A clone or download of this repository
- * A Go compiler version supporting Go 1.15+
+ * A Go compiler version supporting Go 1.16+
  * A temporary internet connection
 
 With Go successfully in your path variable, open a terminal and navigate to the
-directory containing `main.go`, and execute the following command:
+directory containing go.mod, and execute the following command:
 
 ```
-go build
+go build -o qedit ./cmd/qedit.go
 ```
 
-That will download and install dependencies, and build the binary named `qedit`
-or `qedit.exe`. If you would like Go to install and manage the binary for you,
-which will add it to GOPATH/bin (and therefore your path variable):
+But I prefer to use `go run ./cmd/qedit.go` while developing.
 
-```
-go install
+#### Profiling
+
+Insert the `-cpuprofile` or `-memprofile` flags before the list of files when running qedit, like so:
+
+```sh
+go run ./cmd/qedit.go -cpuprofile cpu.prof [files]
+# or
+qedit -cpuprofile cpu.prof [files]
 ```
 
-You can now run `qedit` anywhere.
+### Layout
+
+This project follows the [project layout standard for Go projects](https://github.com/golang-standards/project-layout). At first glance it nearly makes no sense without the context, but here's the rundown for our project:
+
+ - **cmd/** ‒ Program entries.
+ - **internal/** ‒ Private code only meant to be used by qedit.
+ - **pkg/** ‒ Public code in packages we share with anyone who wants to use them.
+   + **pkg/buffer/** ‒ Buffers for text editors and contains an optional syntax highlighting system.
+   + **pkg/ui/** ‒ The custom DOS-like user interface library used in qedit.
 
 ## Contributing
 
