@@ -26,7 +26,7 @@ MIT license, this is important.
  * Modern [rope](https://en.wikipedia.org/wiki/Rope_(data_structure)) buffer (used in emacs)
  * Modern text editing, including: copy/paste, mouse support, selection, etc.
  * Btree-based tiling and floating window management (panels)
- * Extensions (via IPC or the planned [scripting language](https://github.com/d5/tengo))
+ * Extensions via IPC or some scripting language
  * Built-in terminal
 
 ## Screenshots
