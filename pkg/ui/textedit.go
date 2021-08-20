@@ -505,7 +505,7 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 		switch ev.Key() {
 		// Cursor movement
 		case tcell.KeyUp:
-			if ev.Modifiers() == tcell.ModShift {
+			if ev.Modifiers()&tcell.ModShift != 0 {
 				if !t.selectMode {
 					var endCursor buffer.Cursor
 					if cursLine, _ := t.cursor.GetLineCol(); cursLine != 0 {
@@ -534,7 +534,7 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 			}
 			t.ScrollToCursor()
 		case tcell.KeyDown:
-			if ev.Modifiers() == tcell.ModShift {
+			if ev.Modifiers()&tcell.ModShift != 0 {
 				if !t.selectMode {
 					t.selection.Start = t.cursor
 					t.SetCursor(t.cursor.Down())
@@ -557,7 +557,7 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 			}
 			t.ScrollToCursor()
 		case tcell.KeyLeft:
-			if ev.Modifiers() == tcell.ModShift {
+			if ev.Modifiers()&tcell.ModShift != 0 {
 				if !t.selectMode {
 					t.SetCursor(t.cursor.Left())
 					t.selection.Start, t.selection.End = t.cursor, t.cursor
@@ -579,7 +579,7 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 			}
 			t.ScrollToCursor()
 		case tcell.KeyRight:
-			if ev.Modifiers() == tcell.ModShift {
+			if ev.Modifiers()&tcell.ModShift != 0 {
 				if !t.selectMode {
 					t.selection.Start, t.selection.End = t.cursor, t.cursor
 					t.selectMode = true
@@ -595,7 +595,11 @@ func (t *TextEdit) HandleEvent(event tcell.Event) bool {
 				}
 			} else {
 				t.selectMode = false
-				t.SetCursor(t.cursor.Right())
+				if ev.Modifiers()&tcell.ModCtrl != 0 {
+					t.SetCursor(t.cursor.NextWordBoundaryEnd())
+				} else {
+					t.SetCursor(t.cursor.Right())
+				}
 			}
 			t.ScrollToCursor()
 		case tcell.KeyHome:

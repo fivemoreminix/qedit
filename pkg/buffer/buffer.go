@@ -23,6 +23,16 @@ type Buffer interface {
 	// so do not write to it.
 	Slice(startLine, startCol, endLine, endCol int) []byte
 
+	// RuneAtPos returns the UTF-8 rune at the byte position `pos` of the buffer. The
+	// position must be a correct position, otherwise zero is returned.
+	RuneAtPos(pos int) rune
+
+	// EachRuneAtPos executes the function `f` at each rune after byte position `pos`.
+	// This function should be used as opposed to performing a "per character" operation
+	// manually, as it enables caching buffer operations and safety checks. The function
+	// returns when the end of the buffer is met or `f` returns true.
+	EachRuneAtPos(pos int, f func(pos int, r rune) bool)
+
 	// Bytes returns all of the bytes in the buffer. This function is very likely
 	// to copy all of the data in the buffer. Use sparingly. Try using other methods,
 	// where possible.

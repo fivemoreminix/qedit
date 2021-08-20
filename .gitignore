@@ -1,5 +1,6 @@
 # Block executable
 qedit*
+!cmd/qedit.go
 
 # Unblock screenshots
 !screenshots/*

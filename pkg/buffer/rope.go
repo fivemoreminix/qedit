@@ -96,6 +96,40 @@ func (b *RopeBuffer) Slice(startLine, startCol, endLine, endCol int) []byte {
 	return b.rope.Slice(b.LineColToPos(startLine, startCol), endPos+1)
 }
 
+// RuneAtPos returns the UTF-8 rune at the byte position `pos` of the buffer. The
+// position must be a correct position, otherwise zero is returned.
+func (b *RopeBuffer) RuneAtPos(pos int) (val rune) {
+	_, r := b.rope.SplitAt(pos)
+	l, _ := r.SplitAt(b.rope.Len() - pos)
+
+	l.EachLeaf(func(n *ropes.Node) bool {
+		data := n.Value() // Reference; not a copy.
+		val, _ = utf8.DecodeRune(data[0:])
+		return true
+	})
+
+	return 0
+}
+
+// EachRuneAtPos executes the function `f` at each rune after byte position `pos`.
+// This function should be used as opposed to performing a "per character" operation
+// manually, as it enables caching buffer operations and safety checks. The function
+// returns when the end of the buffer is met or `f` returns true.
+func (b *RopeBuffer) EachRuneAtPos(pos int, f func(pos int, r rune) bool) {
+	_, r := b.rope.SplitAt(pos)
+	l, _ := r.SplitAt(b.rope.Len() - pos)
+
+	l.EachLeaf(func(n *ropes.Node) bool {
+		data := n.Value() // Reference; not a copy.
+		for i, r := range string(data) {
+			if f(pos+i, r) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 // Bytes returns all of the bytes in the buffer. This function is very likely
 // to copy all of the data in the buffer. Use sparingly. Try using other methods,
 // where possible.
