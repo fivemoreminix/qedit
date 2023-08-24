@@ -85,22 +85,22 @@ loop:
 		Name:      "Go",
 		Filetypes: []string{".go"},
 		Rules: map[*buffer.RegexpRegion]buffer.Syntax{
-			&buffer.RegexpRegion{Start: regexp.MustCompile("\\/\\/.*")}: buffer.Comment,
-			&buffer.RegexpRegion{Start: regexp.MustCompile("\".*?\"")}:  buffer.String,
-			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b(var|const|if|else|range|for|switch|fallthrough|case|default|break|continue|go|func|return|defer|import|type|package)\\b"),
+			{Start: regexp.MustCompile(`\/\/.*`)}: buffer.Comment,
+			{Start: regexp.MustCompile(`".*?"`)}:  buffer.String,
+			{
+				Start: regexp.MustCompile(`\b(var|const|if|else|range|for|switch|fallthrough|case|default|break|continue|go|func|return|defer|import|type|package)\b`),
 			}: buffer.Keyword,
-			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b(u?int(8|16|32|64)?|rune|byte|string|bool|struct)\\b"),
+			{
+				Start: regexp.MustCompile(`\b(u?int(8|16|32|64)?|rune|byte|string|bool|struct)\b`),
 			}: buffer.Type,
-			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b([1-9][0-9]*|0[0-7]*|0[Xx][0-9A-Fa-f]+|0[Bb][01]+)\\b"),
+			{
+				Start: regexp.MustCompile(`\b([1-9][0-9]*|0[0-7]*|0[Xx][0-9A-Fa-f]+|0[Bb][01]+)\b`),
 			}: buffer.Number,
-			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b(len|cap|panic|make|copy|append)\\b"),
+			{
+				Start: regexp.MustCompile(`\b(len|cap|panic|make|copy|append)\b`),
 			}: buffer.Builtin,
-			&buffer.RegexpRegion{
-				Start: regexp.MustCompile("\\b(nil|true|false)\\b"),
+			{
+				Start: regexp.MustCompile(`\b(nil|true|false)\b`),
 			}: buffer.Special,
 		},
 	}
